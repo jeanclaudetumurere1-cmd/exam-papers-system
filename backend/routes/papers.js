@@ -1,0 +1,420 @@
+const express = require('express');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+const db = require('../config/database');
+const { authenticateToken } = require('../middleware/auth');
+
+const router = express.Router();
+
+// Ensure uploads directory exists
+const uploadDir = path.join(__dirname, '../uploads');
+if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+// Configure multer for file uploads
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, uploadDir);
+    },
+    filename: (req, file, cb) => {
+        const originalName = file.originalname.replace(/[^a-zA-Z0-9.]/g, '_');
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, uniqueSuffix + '_' + originalName);
+    }
+});
+
+const fileFilter = (req, file, cb) => {
+    if (file.mimetype === 'application/pdf') {
+        cb(null, true);
+    } else {
+        cb(new Error('Only PDF files are allowed'), false);
+    }
+};
+
+const upload = multer({ 
+    storage: storage,
+    fileFilter: fileFilter,
+    limits: { fileSize: 10 * 1024 * 1024 }
+});
+
+// ============== PUBLIC ROUTES ==============
+
+// GET all active papers for public
+router.get('/public', async (req, res) => {
+    try {
+        console.log('Fetching public papers...');
+        
+        const [rows] = await db.query(
+            'SELECT id, year, subject, level, category, trade_or_combination, file_path FROM exam_papers WHERE status = "active" ORDER BY year DESC, subject ASC'
+        );
+        
+        console.log(`Found ${rows.length} active papers`);
+        
+        // Get download counts for each paper
+        const papersWithStats = await Promise.all(rows.map(async (paper) => {
+            try {
+                const [downloads] = await db.query(
+                    'SELECT COUNT(*) as count FROM downloads WHERE paper_id = ?',
+                    [paper.id]
+                );
+                return {
+                    ...paper,
+                    download_count: downloads[0]?.count || 0,
+                    file_url: `/${paper.file_path.replace(/\\/g, '/')}`
+                };
+            } catch (err) {
+                console.error('Error getting download count for paper', paper.id, err);
+                return {
+                    ...paper,
+                    download_count: 0,
+                    file_url: `/${paper.file_path.replace(/\\/g, '/')}`
+                };
+            }
+        }));
+        
+        res.json({
+            success: true,
+            data: papersWithStats
+        });
+        
+    } catch (error) {
+        console.error('Error in /public route:', error);
+        res.status(500).json({ 
+            success: false,
+            message: 'Failed to fetch papers',
+            error: error.message,
+            data: []
+        });
+    }
+});
+
+// GET papers by category
+router.get('/public/category/:category', async (req, res) => {
+    try {
+        const category = req.params.category;
+        console.log(`Fetching papers for category: ${category}`);
+        
+        const [rows] = await db.query(
+            'SELECT id, year, subject, level, category, trade_or_combination, file_path FROM exam_papers WHERE status = "active" AND category = ? ORDER BY year DESC, subject ASC',
+            [category]
+        );
+        
+        res.json({
+            success: true,
+            data: rows,
+            category: category
+        });
+        
+    } catch (error) {
+        console.error('Error fetching by category:', error);
+        res.status(500).json({ 
+            success: false,
+            message: 'Failed to fetch papers',
+            data: []
+        });
+    }
+});
+
+// GET papers by level
+router.get('/public/level/:level', async (req, res) => {
+    try {
+        const level = req.params.level;
+        console.log(`Fetching papers for level: ${level}`);
+        
+        const [rows] = await db.query(
+            'SELECT id, year, subject, level, category, trade_or_combination, file_path FROM exam_papers WHERE status = "active" AND level = ? ORDER BY year DESC, subject ASC',
+            [level]
+        );
+        
+        res.json({
+            success: true,
+            data: rows,
+            level: level
+        });
+        
+    } catch (error) {
+        console.error('Error fetching by level:', error);
+        res.status(500).json({ 
+            success: false,
+            message: 'Failed to fetch papers',
+            data: []
+        });
+    }
+});
+
+// ============== ADMIN ROUTES ==============
+
+// Admin route - get all papers
+router.get('/admin', authenticateToken, async (req, res) => {
+    try {
+        const [rows] = await db.query(
+            'SELECT * FROM exam_papers ORDER BY created_at DESC'
+        );
+        
+        res.json({
+            success: true,
+            data: rows
+        });
+    } catch (error) {
+        console.error('Error fetching admin papers:', error);
+        res.status(500).json({ 
+            success: false,
+            message: 'Failed to fetch papers',
+            data: []
+        });
+    }
+});
+
+// Get single paper
+router.get('/:id', authenticateToken, async (req, res) => {
+    try {
+        const [rows] = await db.query(
+            'SELECT * FROM exam_papers WHERE id = ?',
+            [req.params.id]
+        );
+        
+        if (rows.length === 0) {
+            return res.status(404).json({ 
+                success: false,
+                message: 'Paper not found' 
+            });
+        }
+        
+        res.json({
+            success: true,
+            data: rows[0]
+        });
+    } catch (error) {
+        console.error('Error fetching paper:', error);
+        res.status(500).json({ 
+            success: false,
+            message: 'Failed to fetch paper' 
+        });
+    }
+});
+
+// POST new paper
+router.post('/', authenticateToken, upload.single('file'), async (req, res) => {
+    try {
+        const { year, subject, level, category, trade_or_combination } = req.body;
+
+        if (!year || !subject || !level || !category) {
+            return res.status(400).json({ 
+                success: false,
+                message: 'Year, subject, level, and category are required' 
+            });
+        }
+
+        if (!req.file) {
+            return res.status(400).json({ 
+                success: false,
+                message: 'PDF file is required' 
+            });
+        }
+
+        const file_path = 'uploads/' + req.file.filename;
+
+        const [result] = await db.query(
+            'INSERT INTO exam_papers (year, subject, level, category, trade_or_combination, file_path, status) VALUES (?, ?, ?, ?, ?, ?, "active")',
+            [year, subject, level, category, trade_or_combination || null, file_path]
+        );
+
+        res.status(201).json({ 
+            success: true,
+            message: 'Paper added successfully', 
+            id: result.insertId
+        });
+
+    } catch (error) {
+        console.error('Error adding paper:', error);
+        
+        if (req.file) {
+            fs.unlink(req.file.path, (err) => {
+                if (err) console.error('Error deleting file:', err);
+            });
+        }
+
+        res.status(500).json({ 
+            success: false,
+            message: 'Failed to add paper: ' + error.message 
+        });
+    }
+});
+
+// PUT update paper
+router.put('/:id', authenticateToken, upload.single('file'), async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { year, subject, level, category, trade_or_combination, status } = req.body;
+
+        if (!year || !subject || !level || !category || !status) {
+            return res.status(400).json({ 
+                success: false,
+                message: 'All fields are required' 
+            });
+        }
+
+        const [existing] = await db.query('SELECT file_path FROM exam_papers WHERE id = ?', [id]);
+        
+        if (existing.length === 0) {
+            return res.status(404).json({ 
+                success: false,
+                message: 'Paper not found' 
+            });
+        }
+
+        let file_path = existing[0].file_path;
+
+        if (req.file) {
+            const oldFilePath = path.join(__dirname, '..', existing[0].file_path);
+            if (fs.existsSync(oldFilePath)) {
+                fs.unlink(oldFilePath, (err) => {
+                    if (err) console.error('Error deleting old file:', err);
+                });
+            }
+            file_path = 'uploads/' + req.file.filename;
+        }
+
+        await db.query(
+            'UPDATE exam_papers SET year = ?, subject = ?, level = ?, category = ?, trade_or_combination = ?, file_path = ?, status = ? WHERE id = ?',
+            [year, subject, level, category, trade_or_combination || null, file_path, status, id]
+        );
+
+        res.json({ 
+            success: true,
+            message: 'Paper updated successfully'
+        });
+
+    } catch (error) {
+        console.error('Error updating paper:', error);
+        
+        if (req.file) {
+            fs.unlink(req.file.path, (err) => {
+                if (err) console.error('Error deleting file:', err);
+            });
+        }
+
+        res.status(500).json({ 
+            success: false,
+            message: 'Failed to update paper: ' + error.message 
+        });
+    }
+});
+
+// DELETE paper
+router.delete('/:id', authenticateToken, async (req, res) => {
+    try {
+        const [rows] = await db.query(
+            'SELECT file_path FROM exam_papers WHERE id = ?', 
+            [req.params.id]
+        );
+        
+        if (rows.length === 0) {
+            return res.status(404).json({ 
+                success: false,
+                message: 'Paper not found' 
+            });
+        }
+
+        await db.query('DELETE FROM exam_papers WHERE id = ?', [req.params.id]);
+        
+        const filePath = path.join(__dirname, '..', rows[0].file_path);
+        if (fs.existsSync(filePath)) {
+            fs.unlink(filePath, (err) => {
+                if (err) console.error('Error deleting file:', err);
+            });
+        }
+
+        res.json({ 
+            success: true,
+            message: 'Paper deleted successfully' 
+        });
+
+    } catch (error) {
+        console.error('Error deleting paper:', error);
+        res.status(500).json({ 
+            success: false,
+            message: 'Failed to delete paper' 
+        });
+    }
+});
+
+// GET all active papers for public
+router.get('/public', async (req, res) => {
+    try {
+        console.log('Fetching public papers...');
+        
+        const [rows] = await db.query(
+            'SELECT id, year, subject, level, category, trade_or_combination, file_path FROM exam_papers WHERE status = "active" ORDER BY year DESC, subject ASC'
+        );
+        
+        console.log(`Found ${rows.length} active papers`);
+        
+        // Get download counts for each paper
+        const papersWithStats = await Promise.all(rows.map(async (paper) => {
+            try {
+                const [downloads] = await db.query(
+                    'SELECT COUNT(*) as count FROM downloads WHERE paper_id = ?',
+                    [paper.id]
+                );
+                return {
+                    ...paper,
+                    download_count: downloads[0]?.count || 0,
+                    file_url: `/${paper.file_path.replace(/\\/g, '/')}`
+                };
+            } catch (err) {
+                console.error('Error getting download count for paper', paper.id, err);
+                return {
+                    ...paper,
+                    download_count: 0,
+                    file_url: `/${paper.file_path.replace(/\\/g, '/')}`
+                };
+            }
+        }));
+        
+        res.json({
+            success: true,
+            data: papersWithStats
+        });
+        
+    } catch (error) {
+        console.error('Error in /public route:', error);
+        res.status(500).json({ 
+            success: false,
+            message: 'Failed to fetch papers',
+            error: error.message,
+            data: []
+        });
+    }
+});
+
+// GET papers by level
+router.get('/public/level/:level', async (req, res) => {
+    try {
+        const level = req.params.level;
+        console.log(`Fetching papers for level: ${level}`);
+        
+        const [rows] = await db.query(
+            'SELECT id, year, subject, level, category, trade_or_combination, file_path FROM exam_papers WHERE status = "active" AND level = ? ORDER BY year DESC, subject ASC',
+            [level]
+        );
+        
+        res.json({
+            success: true,
+            data: rows,
+            level: level
+        });
+        
+    } catch (error) {
+        console.error('Error fetching by level:', error);
+        res.status(500).json({ 
+            success: false,
+            message: 'Failed to fetch papers',
+            data: []
+        });
+    }
+});
+
+module.exports = router;

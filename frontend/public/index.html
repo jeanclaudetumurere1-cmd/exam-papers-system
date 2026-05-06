@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NESA Past Papers Portal - Rwanda National Exams</title>
+    
+    <!-- Fonts & Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/public/css/public.css">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="/public/assets/icons/favicon.png">
+</head>
+<body>
+    <!-- WhatsApp Support Button -->
+    <a href="https://wa.me/250788765839" target="_blank" class="whatsapp-btn" id="whatsappBtn">
+        <i class="fab fa-whatsapp"></i>
+        <span>Need Help?</span>
+    </a>
+
+    <!-- Main Layout -->
+    <div class="public-layout">
+        <!-- Left Sidebar -->
+        <aside class="public-sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <img src="/public/assets/icons/nesa-logo.png" alt="NESA Logo" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 fill=%22%233b82f6%22/><text x=%2220%22 y=%2265%22 fill=%22white%22 font-size=%2250%22>N</text></svg>'">
+                    <h2>NESA<span>Portal</span></h2>
+                </div>
+                <p>Rwanda National Exams</p>
+            </div>
+
+            <div class="sidebar-stats">
+                <div class="stat-item">
+                    <i class="fas fa-file-pdf"></i>
+                    <div class="stat-info">
+                        <span class="stat-label">Total Papers</span>
+                        <span class="stat-value" id="totalPapersCount">0</span>
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <i class="fas fa-download"></i>
+                    <div class="stat-info">
+                        <span class="stat-label">Downloads</span>
+                        <span class="stat-value" id="totalDownloadsCount">0</span>
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <i class="fas fa-calendar"></i>
+                    <div class="stat-info">
+                        <span class="stat-label">Years</span>
+                        <span class="stat-value" id="yearsCount">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <nav class="sidebar-nav">
+                <a href="#" class="active" onclick="showAllPapers()">
+                    <i class="fas fa-home"></i> All Papers
+                </a>
+                <a href="#" onclick="filterByLevel('Primary')">
+                    <i class="fas fa-child"></i> Primary
+                </a>
+                <a href="#" onclick="filterByLevel('O-Level')">
+                    <i class="fas fa-graduation-cap"></i> O-Level
+                </a>
+                <a href="#" onclick="filterByLevel('A-Level')">
+                    <i class="fas fa-university"></i> A-Level
+                </a>
+                <a href="#" onclick="filterByCategory('General')">
+                    <i class="fas fa-school"></i> General Education
+                </a>
+                <a href="#" onclick="filterByCategory('TVET')">
+                    <i class="fas fa-tools"></i> TVET/TSS
+                </a>
+                <a href="#" onclick="showBookmarks()">
+                    <i class="fas fa-bookmark"></i> Bookmarks
+                    <span class="badge" id="bookmarkCount">0</span>
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <p>© 2024 NESA Rwanda</p>
+                <p class="version">v2.0.0</p>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="public-main">
+            <!-- Top Navigation -->
+            <header class="public-header">
+                <button class="menu-toggle" id="menuToggle">
+                    <i class="fas fa-bars"></i>
+                </button>
+
+                <div class="header-search">
+                    <i class="fas fa-search"></i>
+                    <input 
+                        type="text" 
+                        id="searchInput" 
+                        placeholder="Search by subject, year, or keyword..."
+                        autocomplete="off"
+                    >
+                </div>
+
+                <div class="header-actions">
+                    <button class="btn-icon" onclick="toggleFilters()" title="Show Filters">
+                        <i class="fas fa-sliders-h"></i>
+                    </button>
+                    <button class="btn-icon" onclick="refreshPapers()" title="Refresh">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                    <button class="btn-icon" onclick="toggleStudentProfile()" title="My Profile">
+                        <i class="fas fa-user-circle"></i>
+                    </button>
+                    <button class="btn-icon" onclick="toggleNotifications()" title="Notifications">
+                        <i class="fas fa-bell"></i>
+                        <span class="notification-badge">0</span>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Filters Panel (Collapsible) -->
+            <div class="filters-panel" id="filtersPanel">
+                <div class="filters-grid">
+                    <div class="filter-group">
+                        <label>Year</label>
+                        <select id="yearFilter">
+                            <option value="">All Years</option>
+                        </select>
+                    </div>
+
+                    <div class="filter-group">
+                        <label>Level</label>
+                        <select id="levelFilter">
+                            <option value="">All Levels</option>
+                            <option value="Primary">Primary</option>
+                            <option value="O-Level">O-Level</option>
+                            <option value="A-Level">A-Level</option>
+                        </select>
+                    </div>
+
+                    <div class="filter-group">
+                        <label>Category</label>
+                        <select id="categoryFilter">
+                            <option value="">All Categories</option>
+                            <option value="General">General Education</option>
+                            <option value="TVET">TVET/TSS</option>
+                        </select>
+                    </div>
+
+                    <div class="filter-group">
+                        <label>Subject</label>
+                        <select id="subjectFilter">
+                            <option value="">All Subjects</option>
+                        </select>
+                    </div>
+
+                    <div class="filter-group">
+                        <label>Trade/Combination</label>
+                        <input type="text" id="tradeFilter" placeholder="e.g., PCM, MCB, Plumbing">
+                    </div>
+
+                    <div class="filter-actions">
+                        <button class="btn-primary" onclick="applyFilters()">
+                            <i class="fas fa-filter"></i> Apply
+                        </button>
+                        <button class="btn-secondary" onclick="resetFilters()">
+                            <i class="fas fa-undo"></i> Reset
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Results Info -->
+            <div class="results-info">
+                <div class="results-count">
+                    <span id="showingCount">0</span> papers found
+                </div>
+                <div class="view-options">
+                    <button class="view-option active" onclick="setView('grid')">
+                        <i class="fas fa-th-large"></i>
+                    </button>
+                    <button class="view-option" onclick="setView('list')">
+                        <i class="fas fa-list"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Papers Grid/List -->
+            <div class="papers-container" id="papersContainer">
+                <!-- Papers will be loaded here dynamically -->
+                <div class="loading-spinner"></div>
+            </div>
+
+            <!-- Pagination -->
+            <div class="pagination" id="pagination">
+                <button class="page-btn" id="prevPage" onclick="changePage(-1)">
+                    <i class="fas fa-chevron-left"></i> Previous
+                </button>
+                <div class="page-info" id="pageInfo">Page 1 of 1</div>
+                <button class="page-btn" id="nextPage" onclick="changePage(1)">
+                    Next <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+        </main>
+    </div>
+
+    <!-- Staff Login Modal -->
+    <div class="modal" id="staffLoginModal">
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-header">
+                <h2><i class="fas fa-user-tie"></i> Staff Access</h2>
+                <button class="close-btn" onclick="closeStaffLoginModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="color: var(--text-secondary); margin-bottom: 20px; text-align: center;">
+                    Enter credentials to access admin dashboard
+                </p>
+                <form id="staffLoginForm" onsubmit="handleStaffLogin(event)">
+                    <div class="form-group">
+                        <label for="staffUsername">Username</label>
+                        <input type="text" id="staffUsername" placeholder="Enter username" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="staffPassword">Password</label>
+                        <input type="password" id="staffPassword" placeholder="Enter password" required>
+                    </div>
+                    <div id="staffLoginError" style="color: #ef4444; margin-bottom: 15px; display: none; text-align: center;"></div>
+                    <button type="submit" class="btn-primary" style="width: 100%; padding: 12px;">
+                        <i class="fas fa-sign-in-alt"></i> Login to Dashboard
+                    </button>
+                </form>
+                <div style="margin-top: 20px; text-align: center; font-size: 12px; color: var(--text-muted);">
+                    <i class="fas fa-shield-alt"></i> Authorized personnel only
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Paper Preview Modal -->
+    <div class="modal" id="previewModal">
+        <div class="modal-content preview-modal">
+            <div class="modal-header">
+                <h2 id="previewTitle">Paper Preview</h2>
+                <button class="close-btn" onclick="closePreview()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <iframe id="previewFrame" src="" frameborder="0"></iframe>
+            </div>
+        </div>
+    </div>
+
+    <!-- Share Modal -->
+    <div class="modal" id="shareModal">
+        <div class="modal-content share-modal">
+            <div class="modal-header">
+                <h2>Share Paper</h2>
+                <button class="close-btn" onclick="closeShareModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="share-link" id="shareLink"></div>
+                <div class="share-buttons">
+                    <button onclick="shareViaWhatsApp()" class="share-btn whatsapp">
+                        <i class="fab fa-whatsapp"></i> WhatsApp
+                    </button>
+                    <button onclick="shareViaEmail()" class="share-btn email">
+                        <i class="fas fa-envelope"></i> Email
+                    </button>
+                    <button onclick="copyLink()" class="share-btn copy">
+                        <i class="fas fa-copy"></i> Copy Link
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Container -->
+    <div id="notificationContainer"></div>
+
+    <!-- Scripts -->
+    <script src="/js/public.js"></script>
+    <script>
+        // Track page visit
+        trackVisit();
+    </script>
+</body>
+</html>

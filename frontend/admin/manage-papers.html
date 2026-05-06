@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Papers - NESA Past Papers Portal</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <!-- Prevent caching -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    
+    <style>
+        .category-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .category-general {
+            background: rgba(59, 130, 246, 0.1);
+            color: #3b82f6;
+        }
+        
+        .category-tvet {
+            background: rgba(16, 185, 129, 0.1);
+            color: #10b981;
+        }
+        
+        .level-primary {
+            background: rgba(139, 92, 246, 0.1);
+            color: #8b5cf6;
+        }
+        
+        .level-olevel {
+            background: rgba(59, 130, 246, 0.1);
+            color: #3b82f6;
+        }
+        
+        .level-alevel {
+            background: rgba(245, 158, 11, 0.1);
+            color: #f59e0b;
+        }
+        
+        .trade-badge {
+            background: var(--bg-secondary);
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 11px;
+            color: var(--text-secondary);
+            border: 1px solid var(--border-color);
+        }
+        
+        .filter-section {
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid var(--border-color);
+        }
+        
+        .filter-title {
+            color: var(--text-secondary);
+            font-size: 14px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .filter-title i {
+            color: var(--accent-primary);
+        }
+        
+        .filter-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .quick-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .quick-stat {
+            background: var(--bg-card);
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            border: 1px solid var(--border-color);
+        }
+        
+        .quick-stat .label {
+            color: var(--text-secondary);
+            font-size: 12px;
+            margin-bottom: 5px;
+        }
+        
+        .quick-stat .value {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--accent-primary);
+        }
+        
+        .action-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 13px;
+        }
+        
+        .file-info-text {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2>NESA<span>Portal</span></h2>
+                <p>Admin Panel</p>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <a href="/admin/dashboard.html">
+                    <i class="fas fa-home"></i> Dashboard
+                </a>
+                <a href="/admin/manage-papers.html" class="active">
+                    <i class="fas fa-file-pdf"></i> Manage Papers
+                </a>
+                <a href="/admin/analytics.html">
+                    <i class="fas fa-chart-line"></i> Analytics
+                </a>
+                <a href="#" id="logoutBtn">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </a>
+            </nav>
+        </aside>
+        
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="page-header">
+                <h1>Manage Exam Papers</h1>
+                <div class="action-group">
+                    <button class="btn btn-primary" id="addPaperBtn">
+                        <i class="fas fa-plus"></i> Add New Paper
+                    </button>
+                    <button class="btn btn-secondary" id="exportBtn">
+                        <i class="fas fa-download"></i> Export List
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Quick Stats -->
+            <div class="quick-stats">
+                <div class="quick-stat">
+                    <div class="label">Total Papers</div>
+                    <div class="value" id="totalPapersCount">0</div>
+                </div>
+                <div class="quick-stat">
+                    <div class="label">Active</div>
+                    <div class="value" id="activePapersCount">0</div>
+                </div>
+                <div class="quick-stat">
+                    <div class="label">Primary</div>
+                    <div class="value" id="primaryCount">0</div>
+                </div>
+                <div class="quick-stat">
+                    <div class="label">O-Level</div>
+                    <div class="value" id="olevelCount">0</div>
+                </div>
+                <div class="quick-stat">
+                    <div class="label">A-Level</div>
+                    <div class="value" id="alevelCount">0</div>
+                </div>
+                <div class="quick-stat">
+                    <div class="label">General</div>
+                    <div class="value" id="generalCount">0</div>
+                </div>
+                <div class="quick-stat">
+                    <div class="label">TVET</div>
+                    <div class="value" id="tvetCount">0</div>
+                </div>
+            </div>
+            
+            <!-- Advanced Filters -->
+            <div class="filter-section">
+                <div class="filter-title">
+                    <i class="fas fa-sliders-h"></i> Advanced Filters
+                </div>
+                
+                <div class="filter-row">
+                    <div class="form-group">
+                        <label>Search</label>
+                        <input type="text" id="searchInput" placeholder="Search by subject, trade...">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Year</label>
+                        <select id="yearFilter">
+                            <option value="">All Years</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Level</label>
+                        <select id="levelFilter">
+                            <option value="">All Levels</option>
+                            <option value="Primary">Primary</option>
+                            <option value="O-Level">O-Level</option>
+                            <option value="A-Level">A-Level</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="filter-row">
+                    <div class="form-group">
+                        <label>Category</label>
+                        <select id="categoryFilter">
+                            <option value="">All Categories</option>
+                            <option value="General">General Education</option>
+                            <option value="TVET">TVET/TSS</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Subject</label>
+                        <select id="subjectFilter">
+                            <option value="">All Subjects</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Trade/Combination</label>
+                        <input type="text" id="tradeFilter" placeholder="e.g., PCM, MCB, Plumbing">
+                    </div>
+                </div>
+                
+                <div class="filter-row">
+                    <div class="form-group">
+                        <label>Status</label>
+                        <select id="statusFilter">
+                            <option value="">All Status</option>
+                            <option value="active">Active</option>
+                            <option value="inactive">Inactive</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Date Added</label>
+                        <select id="dateFilter">
+                            <option value="">Any Time</option>
+                            <option value="today">Today</option>
+                            <option value="week">This Week</option>
+                            <option value="month">This Month</option>
+                            <option value="year">This Year</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group filter-actions">
+                        <button class="btn btn-primary btn-sm" onclick="applyFilters()">
+                            <i class="fas fa-filter"></i> Apply
+                        </button>
+                        <button class="btn btn-secondary btn-sm" onclick="resetFilters()">
+                            <i class="fas fa-undo"></i> Reset
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Papers Table -->
+            <div class="table-container">
+                <table id="papersTable">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Year</th>
+                            <th>Subject</th>
+                            <th>Level</th>
+                            <th>Category</th>
+                            <th>Trade/Combination</th>
+                            <th>File</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="papersTableBody">
+                        <tr>
+                            <td colspan="9" class="text-center">
+                                <div class="loading-spinner"></div>
+                                <p>Loading papers...</p>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Pagination -->
+            <div class="pagination" id="pagination">
+                <button class="page-btn" id="prevPage" disabled>
+                    <i class="fas fa-chevron-left"></i> Previous
+                </button>
+                <span class="page-info" id="pageInfo">Page 1 of 1</span>
+                <button class="page-btn" id="nextPage" disabled>
+                    Next <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+        </main>
+    </div>
+    
+    <!-- Add/Edit Paper Modal -->
+    <div id="paperModal" class="modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h2 id="modalTitle">Add New Paper</h2>
+                <button class="close-btn" id="closeModalBtn">&times;</button>
+            </div>
+            
+            <form id="paperForm" enctype="multipart/form-data">
+                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div class="form-group">
+                        <label>Year <span class="required">*</span></label>
+                        <input type="number" id="year" name="year" required min="2000" max="2099">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Level <span class="required">*</span></label>
+                        <select id="level" name="level" required>
+                            <option value="">Select Level</option>
+                            <option value="Primary">Primary</option>
+                            <option value="O-Level">O-Level</option>
+                            <option value="A-Level">A-Level</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div class="form-group">
+                        <label>Category <span class="required">*</span></label>
+                        <select id="category" name="category" required>
+                            <option value="">Select Category</option>
+                            <option value="General">General Education</option>
+                            <option value="TVET">TVET/TSS</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Subject <span class="required">*</span></label>
+                        <input type="text" id="subject" name="subject" required placeholder="e.g., Mathematics">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>Trade/Combination</label>
+                    <input type="text" id="trade_or_combination" name="trade_or_combination" 
+                           placeholder="e.g., PCM, MCB, Plumbing (for TVET and A-Level)">
+                    <small class="form-text">For TVET papers, specify the trade. For A-Level, specify combination.</small>
+                </div>
+                
+                <div class="form-group" id="fileUploadGroup">
+                    <label>PDF File <span class="required" id="fileRequired">*</span></label>
+                    <div class="file-upload-area" id="fileUploadArea">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <p>Drag & drop your PDF here or click to browse</p>
+                        <input type="file" id="file" name="file" accept=".pdf" class="file-input">
+                        <small class="form-text">Maximum file size: 10MB</small>
+                    </div>
+                    <div id="fileInfo" class="file-info" style="display: none;">
+                        <i class="fas fa-file-pdf"></i>
+                        <span id="fileName"></span>
+                        <span id="fileSize"></span>
+                        <button type="button" class="remove-file" id="removeFileBtn">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="form-group" id="statusGroup" style="display: none;">
+                    <label>Status</label>
+                    <select id="status" name="status">
+                        <option value="active">Active (Visible to public)</option>
+                        <option value="inactive">Inactive (Hidden from public)</option>
+                    </select>
+                </div>
+                
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" id="cancelModalBtn">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="savePaperBtn">
+                        <i class="fas fa-save"></i> Save Paper
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Delete Confirmation Modal -->
+    <div id="deleteModal" class="modal">
+        <div class="modal-content delete-modal">
+            <div class="modal-header">
+                <h2>Confirm Delete</h2>
+                <button class="close-btn" id="closeDeleteModalBtn">&times;</button>
+            </div>
+            
+            <div class="delete-content">
+                <i class="fas fa-exclamation-triangle warning-icon"></i>
+                <p>Are you sure you want to delete this paper?</p>
+                <p class="delete-details" id="deletePaperInfo"></p>
+                <p class="delete-warning">This action cannot be undone and will remove the PDF file permanently!</p>
+            </div>
+            
+            <div class="modal-actions">
+                <button class="btn btn-secondary" id="cancelDeleteBtn">Cancel</button>
+                <button class="btn btn-danger" id="confirmDeleteBtn">
+                    <i class="fas fa-trash"></i> Delete Permanently
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- View Details Modal -->
+    <div id="viewModal" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2>Paper Details</h2>
+                <button class="close-btn" id="closeViewModalBtn">&times;</button>
+            </div>
+            
+            <div class="modal-body" id="paperDetails">
+                <!-- Details will be populated dynamically -->
+            </div>
+            
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeViewModal()">Close</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Notification Container -->
+    <div id="notificationContainer"></div>
+    
+    <script src="/js/auth.js"></script>
+    <script src="/admin/js/manage-papers.js"></script>
+</body>
+</html>
