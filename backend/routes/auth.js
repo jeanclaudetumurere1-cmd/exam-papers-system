@@ -3,7 +3,8 @@ const jwt = require('jsonwebtoken');
 const router = express.Router();
 
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'Claude';
-const ADMIN_PASSWORD = 'Umusuder01@'; // Fixed password as per requirements
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'Umusuder01@';
+const JWT_SECRET = process.env.JWT_SECRET || 'change-this-secret-before-deploying';
 
 router.post('/login', async (req, res) => {
     try {
@@ -28,7 +29,7 @@ router.post('/login', async (req, res) => {
         // Create token
         const token = jwt.sign(
             { username, role: 'admin' },
-            process.env.JWT_SECRET,
+            JWT_SECRET,
             { expiresIn: '24h' }
         );
 
@@ -73,7 +74,7 @@ router.get('/verify', (req, res) => {
     }
 
     try {
-        jwt.verify(token, process.env.JWT_SECRET);
+        jwt.verify(token, JWT_SECRET);
         res.json({ 
             success: true,
             valid: true 

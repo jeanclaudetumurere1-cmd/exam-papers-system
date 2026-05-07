@@ -8,15 +8,27 @@ const authRoutes = require('./routes/auth');
 const papersRoutes = require('./routes/papers');
 const analyticsRoutes = require('./routes/analytics');
 const { authenticateToken, preventCache } = require('./middleware/auth');
+const ensureSchema = require('./utils/ensureSchema');
 
 const app = express();
+
+const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:1000')
+    .split(',')
+    .map(origin => origin.trim())
+    .filter(Boolean);
 
 // Middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());
 app.use(cors({
-    origin: 'http://localhost:1000',
+    origin: (origin, callback) => {
+        if (!origin || allowedOrigins.includes(origin)) {
+            return callback(null, true);
+        }
+
+        return callback(new Error('Not allowed by CORS'));
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept']
@@ -38,6 +50,48 @@ app.use('/api/analytics', preventCache);
 app.use('/api/auth', authRoutes);
 app.use('/api/papers', papersRoutes);
 app.use('/api/analytics', analyticsRoutes);
+
+app.post('/api/admin/comments/reply', authenticateToken, async (req, res) => {
+    try {
+        const { commentId, reply } = req.body;
+
+        if (!commentId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Comment id is required'
+            });
+        }
+
+        if (!reply || !reply.trim()) {
+            return res.status(400).json({
+                success: false,
+                message: 'Reply is required'
+            });
+        }
+
+        const Comment = require('./models/Comment');
+        const replyId = await Comment.reply(commentId, reply.trim());
+
+        if (!replyId) {
+            return res.status(404).json({
+                success: false,
+                message: 'Comment not found'
+            });
+        }
+
+        res.json({
+            success: true,
+            message: 'Reply saved successfully',
+            replyId
+        });
+    } catch (error) {
+        console.error('Error replying to comment:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to save reply: ' + error.message
+        });
+    }
+});
 
 // Root route
 app.get('/', (req, res) => {
@@ -73,7 +127,9 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 1000;
-app.listen(PORT, () => {
+ensureSchema().catch(error => {
+    console.error('Database schema check failed:', error);
+}).finally(() => app.listen(PORT, () => {
     console.log('\n=================================');
     console.log('🚀 NESA PORTAL SERVER STARTED');
     console.log('=================================');
@@ -82,4 +138,4 @@ app.listen(PORT, () => {
     console.log(`🔐 Admin: http://localhost:${PORT}/admin/login.html`);
     console.log(`📊 API: http://localhost:${PORT}/api/status`);
     console.log('=================================\n');
-});
+}));

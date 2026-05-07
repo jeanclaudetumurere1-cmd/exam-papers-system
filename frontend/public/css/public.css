@@ -642,6 +642,53 @@ body {
     border: 1px solid var(--border);
 }
 
+.paper-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    color: var(--text-secondary);
+    font-size: 13px;
+}
+
+.rating,
+.interactions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.rating i {
+    color: var(--warning);
+}
+
+.rating-text {
+    color: var(--text-muted);
+}
+
+.interactions span {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.search-suggestion {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 16px;
+    background: rgba(245, 158, 11, 0.12);
+    border: 1px solid rgba(245, 158, 11, 0.32);
+    border-radius: 12px;
+    color: var(--text-primary);
+    font-size: 14px;
+}
+
+.search-suggestion i {
+    color: var(--warning);
+}
+
 /* Paper Actions */
 .paper-actions {
     padding: 15px 20px;
@@ -675,7 +722,17 @@ body {
 .action-btn.download:hover { background: var(--success); }
 .action-btn.share:hover { background: var(--secondary); }
 .action-btn.print:hover { background: var(--warning); }
-.action-btn.bookmark.active { color: var(--warning); }
+.action-btn.like.active {
+    background: rgba(239, 68, 68, 0.16);
+    color: var(--danger);
+    border: 1px solid rgba(239, 68, 68, 0.45);
+}
+
+.action-btn.bookmark.active {
+    background: rgba(245, 158, 11, 0.16);
+    color: var(--warning);
+    border: 1px solid rgba(245, 158, 11, 0.45);
+}
 
 /* List View Specific */
 .paper-card.list .paper-header {

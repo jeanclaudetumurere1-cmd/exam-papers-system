@@ -2,10 +2,14 @@ require('dotenv').config();
 const mysql = require('mysql2/promise');
 
 async function main() {
+    const databaseName = process.env.DB_NAME || 'exam_system';
+    const useSsl = process.env.DB_SSL === 'true' || process.env.NODE_ENV === 'production';
     const config = {
         host: process.env.DB_HOST || 'localhost',
+        port: Number(process.env.DB_PORT || 3306),
         user: process.env.DB_USER || 'root',
-        password: process.env.DB_PASSWORD || ''
+        password: process.env.DB_PASSWORD || '',
+        ssl: useSsl ? { rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false' } : undefined
     };
 
     let connection;
@@ -13,10 +17,10 @@ async function main() {
         connection = await mysql.createConnection(config);
         console.log('Connected to MySQL server');
 
-        await connection.query('CREATE DATABASE IF NOT EXISTS exam_system');
+        await connection.query(`CREATE DATABASE IF NOT EXISTS \`${databaseName}\``);
         console.log('✅ Database created');
 
-        await connection.changeUser({ database: 'exam_system' });
+        await connection.changeUser({ database: databaseName });
         console.log('✅ Using exam_system database');
 
         const createExamPapers = `CREATE TABLE IF NOT EXISTS exam_papers (
@@ -63,6 +67,38 @@ async function main() {
         await connection.query(createDownloads);
         console.log('✅ downloads table created');
 
+        const createComments = `CREATE TABLE IF NOT EXISTS comments (
+            id INT PRIMARY KEY AUTO_INCREMENT,
+            paper_id INT NOT NULL,
+            student_name VARCHAR(100) NOT NULL,
+            student_email VARCHAR(100) NOT NULL,
+            comment TEXT NOT NULL,
+            rating INT DEFAULT NULL CHECK (rating >= 1 AND rating <= 5),
+            likes INT DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (paper_id) REFERENCES exam_papers(id) ON DELETE CASCADE,
+            INDEX idx_paper_id (paper_id),
+            INDEX idx_created_at (created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`;
+
+        await connection.query(createComments);
+        console.log('✅ comments table created');
+
+        const createInteractions = `CREATE TABLE IF NOT EXISTS paper_interactions (
+            id INT PRIMARY KEY AUTO_INCREMENT,
+            paper_id INT NOT NULL,
+            interaction_type ENUM('view', 'like', 'bookmark') NOT NULL,
+            user_identifier VARCHAR(255),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (paper_id) REFERENCES exam_papers(id) ON DELETE CASCADE,
+            UNIQUE KEY unique_interaction (paper_id, interaction_type, user_identifier),
+            INDEX idx_paper_id (paper_id),
+            INDEX idx_interaction_type (interaction_type)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`;
+
+        await connection.query(createInteractions);
+        console.log('✅ paper_interactions table created');
+
         const insertSampleData = `INSERT INTO exam_papers (year, subject, level, category, trade_or_combination, file_path, status) VALUES
             (2023, 'Mathematics', 'O-Level', 'STEM', NULL, 'uploads/sample1.pdf', 'active'),
             (2023, 'English', 'O-Level', 'Languages', NULL, 'uploads/sample2.pdf', 'active'),
@@ -76,7 +112,7 @@ async function main() {
         console.log('✅ Sample data inserted');
 
         console.log('\n✅ Database setup completed successfully!');
-        console.log('Database "exam_system" has been created with sample data.');
+        console.log(`Database "${databaseName}" has been created with sample data.`);
     } catch (err) {
         console.error('Error setting up database:', err.message);
         process.exit(1);

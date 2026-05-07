@@ -41,6 +41,55 @@ const upload = multer({
 
 // ============== PUBLIC ROUTES ==============
 
+// GET all active papers for public (root route)
+router.get('/', async (req, res) => {
+    try {
+        console.log('Fetching public papers...');
+        
+        const [rows] = await db.query(
+            'SELECT id, year, subject, level, category, trade_or_combination, file_path FROM exam_papers WHERE status = "active" ORDER BY year DESC, subject ASC'
+        );
+        
+        console.log(`Found ${rows.length} active papers`);
+        
+        // Get download counts for each paper
+        const papersWithStats = await Promise.all(rows.map(async (paper) => {
+            try {
+                const [downloads] = await db.query(
+                    'SELECT COUNT(*) as count FROM downloads WHERE paper_id = ?',
+                    [paper.id]
+                );
+                return {
+                    ...paper,
+                    download_count: downloads[0]?.count || 0,
+                    file_url: `/${paper.file_path.replace(/\\/g, '/')}`
+                };
+            } catch (err) {
+                console.error('Error getting download count for paper', paper.id, err);
+                return {
+                    ...paper,
+                    download_count: 0,
+                    file_url: `/${paper.file_path.replace(/\\/g, '/')}`
+                };
+            }
+        }));
+        
+        res.json({
+            success: true,
+            data: papersWithStats
+        });
+        
+    } catch (error) {
+        console.error('Error in / route:', error);
+        res.status(500).json({ 
+            success: false,
+            message: 'Failed to fetch papers',
+            error: error.message,
+            data: []
+        });
+    }
+});
+
 // GET all active papers for public
 router.get('/public', async (req, res) => {
     try {
@@ -163,6 +212,106 @@ router.get('/admin', authenticateToken, async (req, res) => {
             success: false,
             message: 'Failed to fetch papers',
             data: []
+        });
+    }
+});
+
+// Admin route - get all student comments and admin replies
+router.get('/admin/comments', authenticateToken, async (req, res) => {
+    try {
+        const Comment = require('../models/Comment');
+        const comments = await Comment.getAll();
+
+        res.json({
+            success: true,
+            data: comments
+        });
+    } catch (error) {
+        console.error('Error fetching admin comments:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch comments',
+            data: []
+        });
+    }
+});
+
+// Admin route - reply to a student comment
+router.post('/admin/comments/:commentId/reply', authenticateToken, async (req, res) => {
+    try {
+        const { commentId } = req.params;
+        const { reply } = req.body;
+
+        if (!reply || !reply.trim()) {
+            return res.status(400).json({
+                success: false,
+                message: 'Reply is required'
+            });
+        }
+
+        const Comment = require('../models/Comment');
+        const replyId = await Comment.reply(commentId, reply.trim());
+
+        if (!replyId) {
+            return res.status(404).json({
+                success: false,
+                message: 'Comment not found'
+            });
+        }
+
+        res.json({
+            success: true,
+            message: 'Reply saved successfully',
+            replyId
+        });
+    } catch (error) {
+        console.error('Error replying to comment:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to save reply: ' + error.message
+        });
+    }
+});
+
+// Admin route - reply endpoint with comment id in body
+router.post('/admin/comments/reply', authenticateToken, async (req, res) => {
+    try {
+        const { commentId, reply } = req.body;
+
+        if (!commentId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Comment id is required'
+            });
+        }
+
+        if (!reply || !reply.trim()) {
+            return res.status(400).json({
+                success: false,
+                message: 'Reply is required'
+            });
+        }
+
+        const Comment = require('../models/Comment');
+        const replyId = await Comment.reply(commentId, reply.trim());
+
+        if (!replyId) {
+            return res.status(404).json({
+                success: false,
+                message: 'Comment not found'
+            });
+        }
+
+        res.json({
+            success: true,
+            message: 'Reply saved successfully',
+            replyId
+        });
+    } catch (error) {
+        console.error('Error replying to comment:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to save reply: ' + error.message
         });
     }
 });
@@ -413,6 +562,180 @@ router.get('/public/level/:level', async (req, res) => {
             success: false,
             message: 'Failed to fetch papers',
             data: []
+        });
+    }
+});
+
+// ============== COMMENT ROUTES ==============
+
+// POST add comment to paper
+router.post('/:paperId/comments', async (req, res) => {
+    try {
+        const { paperId } = req.params;
+        const { student_name, student_email, comment, rating } = req.body;
+
+        if (!student_name || !student_email || !comment) {
+            return res.status(400).json({
+                success: false,
+                message: 'Name, email, and comment are required'
+            });
+        }
+
+        // Validate email format
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(student_email)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid email format'
+            });
+        }
+
+        // Check if paper exists
+        const [paperExists] = await db.query('SELECT id FROM exam_papers WHERE id = ? AND status = "active"', [paperId]);
+        if (paperExists.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Paper not found'
+            });
+        }
+
+        const Comment = require('../models/Comment');
+        const commentId = await Comment.create({
+            paper_id: paperId,
+            student_name,
+            student_email,
+            comment,
+            rating: rating ? parseInt(rating) : null
+        });
+
+        res.status(201).json({
+            success: true,
+            message: 'Comment added successfully',
+            commentId
+        });
+
+    } catch (error) {
+        console.error('Error adding comment:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to add comment: ' + error.message
+        });
+    }
+});
+
+// GET comments for a paper
+router.get('/:paperId/comments', async (req, res) => {
+    try {
+        const { paperId } = req.params;
+
+        const Comment = require('../models/Comment');
+        const comments = await Comment.getByPaperId(paperId);
+
+        res.json({
+            success: true,
+            data: comments
+        });
+
+    } catch (error) {
+        console.error('Error fetching comments:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch comments',
+            data: []
+        });
+    }
+});
+
+// POST like/unlike comment
+router.post('/comments/:commentId/like', async (req, res) => {
+    try {
+        const { commentId } = req.params;
+        const { action } = req.body; // 'like' or 'unlike'
+
+        const Comment = require('../models/Comment');
+        const comment = await Comment.getById(commentId);
+
+        if (!comment) {
+            return res.status(404).json({
+                success: false,
+                message: 'Comment not found'
+            });
+        }
+
+        const newLikes = action === 'like' ? comment.likes + 1 : Math.max(0, comment.likes - 1);
+        await Comment.updateLikes(commentId, newLikes);
+
+        res.json({
+            success: true,
+            likes: newLikes
+        });
+
+    } catch (error) {
+        console.error('Error updating comment likes:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to update likes'
+        });
+    }
+});
+
+// GET paper rating and stats
+router.get('/:paperId/rating', async (req, res) => {
+    try {
+        const { paperId } = req.params;
+
+        const Comment = require('../models/Comment');
+        const rating = await Comment.getAverageRating(paperId);
+
+        const Paper = require('../models/Paper');
+        const views = await Paper.getInteractionCount(paperId, 'view');
+        const likes = await Paper.getInteractionCount(paperId, 'like');
+
+        res.json({
+            success: true,
+            data: {
+                averageRating: rating.average,
+                totalRatings: rating.total,
+                views,
+                likes
+            }
+        });
+
+    } catch (error) {
+        console.error('Error fetching paper rating:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch rating data'
+        });
+    }
+});
+
+// POST record interaction (view, like, bookmark)
+router.post('/:paperId/interact', async (req, res) => {
+    try {
+        const { paperId } = req.params;
+        const { type, userIdentifier } = req.body; // type: 'view', 'like', 'bookmark'
+
+        if (!['view', 'like', 'bookmark'].includes(type)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid interaction type'
+            });
+        }
+
+        const Paper = require('../models/Paper');
+        await Paper.recordInteraction(paperId, type, userIdentifier || req.ip);
+
+        res.json({
+            success: true,
+            message: 'Interaction recorded'
+        });
+
+    } catch (error) {
+        console.error('Error recording interaction:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to record interaction'
         });
     }
 });

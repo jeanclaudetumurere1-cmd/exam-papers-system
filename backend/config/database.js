@@ -1,9 +1,12 @@
 require('dotenv').config();
 const mysql = require('mysql2/promise');
 
+const useSsl = process.env.DB_SSL === 'true' || process.env.NODE_ENV === 'production';
+
 // Create connection pool
 const pool = mysql.createPool({
     host: process.env.DB_HOST || 'localhost',
+    port: Number(process.env.DB_PORT || 3306),
     user: process.env.DB_USER || 'root',
     password: process.env.DB_PASSWORD || '',
     database: process.env.DB_NAME || 'exam_system',
@@ -11,7 +14,8 @@ const pool = mysql.createPool({
     connectionLimit: 10,
     queueLimit: 0,
     enableKeepAlive: true,
-    keepAliveInitialDelay: 0
+    keepAliveInitialDelay: 0,
+    ssl: useSsl ? { rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false' } : undefined
 });
 
 // Test database connection

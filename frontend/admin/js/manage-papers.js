@@ -5,12 +5,15 @@ let currentPage = 1;
 const itemsPerPage = 10;
 let paperToDelete = null;
 let editingId = null;
+let allComments = [];
+let replyingToCommentId = null;
 
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Manage Papers page initialized');
     initializePage();
     setupEventListeners();
     loadPapers();
+    loadComments();
 });
 
 function initializePage() {
@@ -88,6 +91,11 @@ function setupEventListeners() {
     if (closeViewModalBtn) {
         closeViewModalBtn.addEventListener('click', closeViewModal);
     }
+
+    document.getElementById('refreshCommentsBtn')?.addEventListener('click', loadComments);
+    document.getElementById('closeReplyModalBtn')?.addEventListener('click', closeReplyModal);
+    document.getElementById('cancelReplyBtn')?.addEventListener('click', closeReplyModal);
+    document.getElementById('saveReplyBtn')?.addEventListener('click', saveReply);
 
     // Confirm delete button - IMPORTANT: This is the key for delete functionality
     const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
@@ -274,6 +282,18 @@ function updateStats() {
     document.getElementById('alevelCount').textContent = alevel;
     document.getElementById('generalCount').textContent = general;
     document.getElementById('tvetCount').textContent = tvet;
+    updateCommentStats();
+}
+
+function updateCommentStats() {
+    const commentsCount = allComments.filter(comment => !comment.is_admin_comment).length;
+    const repliesCount = allComments.filter(comment => comment.is_admin_comment || comment.admin_reply).length;
+
+    const commentsEl = document.getElementById('commentsCount');
+    const repliesEl = document.getElementById('repliesCount');
+
+    if (commentsEl) commentsEl.textContent = commentsCount;
+    if (repliesEl) repliesEl.textContent = repliesCount;
 }
 
 function filterPapers() {
@@ -806,6 +826,171 @@ function exportToCSV() {
     showNotification('Export started', 'success');
 }
 
+// ============== COMMENT MANAGEMENT ==============
+
+async function loadComments() {
+    const tbody = document.getElementById('commentsTableBody');
+    if (tbody) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="8" class="text-center">
+                    <div class="loading-spinner"></div>
+                    <p>Loading comments...</p>
+                </td>
+            </tr>
+        `;
+    }
+
+    try {
+        const response = await fetch('/api/papers/admin/comments', {
+            credentials: 'include',
+            headers: {
+                'Cache-Control': 'no-cache'
+            }
+        });
+
+        if (!response.ok) {
+            if (response.status === 401) {
+                window.location.href = '/admin/login.html';
+                return;
+            }
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const result = await response.json();
+        allComments = result.success && Array.isArray(result.data) ? result.data : [];
+        updateCommentStats();
+        displayComments();
+    } catch (error) {
+        console.error('Error loading comments:', error);
+        if (tbody) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="8" class="text-center error-message">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <p>Failed to load comments: ${escapeHtml(error.message)}</p>
+                        <button onclick="loadComments()" class="btn btn-secondary btn-sm">Retry</button>
+                    </td>
+                </tr>
+            `;
+        }
+    }
+}
+
+function displayComments() {
+    const tbody = document.getElementById('commentsTableBody');
+    if (!tbody) return;
+
+    const studentComments = allComments.filter(comment => !comment.is_admin_comment);
+
+    if (studentComments.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="8" class="text-center">
+                    <i class="fas fa-comments" style="font-size: 2rem; color: #4a5568;"></i>
+                    <p>No comments yet</p>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    tbody.innerHTML = studentComments.map(comment => {
+        const paperTitle = [
+            comment.paper_subject || `Paper #${comment.paper_id}`,
+            comment.paper_year,
+            comment.paper_level
+        ].filter(Boolean).join(' - ');
+        const hasReply = Boolean(comment.admin_reply);
+
+        return `
+            <tr>
+                <td>${escapeHtml(paperTitle)}</td>
+                <td>
+                    <strong>${escapeHtml(comment.student_name || 'Student')}</strong>
+                    <div class="file-info-text">${escapeHtml(comment.student_email || '')}</div>
+                </td>
+                <td class="comment-text">${escapeHtml(comment.comment || '')}</td>
+                <td>${comment.rating ? generateAdminStars(comment.rating) : '-'}</td>
+                <td>${comment.likes || 0}</td>
+                <td class="admin-reply-text">${hasReply ? escapeHtml(comment.admin_reply) : '-'}</td>
+                <td>${comment.created_at ? new Date(comment.created_at).toLocaleString() : '-'}</td>
+                <td>
+                    <button class="btn btn-primary btn-sm" onclick="openReplyModal(${comment.id})">
+                        <i class="fas fa-reply"></i> ${hasReply ? 'Update' : 'Reply'}
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function openReplyModal(commentId) {
+    const comment = allComments.find(item => item.id === commentId);
+    if (!comment) return;
+
+    replyingToCommentId = commentId;
+    document.getElementById('replyCommentPreview').innerHTML = `
+        <p><strong>${escapeHtml(comment.student_name || 'Student')}</strong></p>
+        <p>${escapeHtml(comment.comment || '')}</p>
+    `;
+    document.getElementById('adminReplyText').value = comment.admin_reply || '';
+    document.getElementById('replyModal').classList.add('active');
+}
+
+function closeReplyModal() {
+    document.getElementById('replyModal').classList.remove('active');
+    replyingToCommentId = null;
+    document.getElementById('adminReplyText').value = '';
+}
+
+async function saveReply() {
+    const reply = document.getElementById('adminReplyText').value.trim();
+    if (!replyingToCommentId || !reply) {
+        showNotification('Please write a reply first', 'error');
+        return;
+    }
+
+    const button = document.getElementById('saveReplyBtn');
+    const originalText = button.innerHTML;
+
+    try {
+        button.disabled = true;
+        button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+
+        const response = await fetch('/api/admin/comments/reply', {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ commentId: replyingToCommentId, reply })
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data.message || 'Failed to save reply');
+        }
+
+        showNotification('Reply saved successfully', 'success');
+        closeReplyModal();
+        await loadComments();
+    } catch (error) {
+        console.error('Error saving reply:', error);
+        showNotification(error.message, 'error');
+    } finally {
+        button.disabled = false;
+        button.innerHTML = originalText;
+    }
+}
+
+function generateAdminStars(rating) {
+    const value = Math.max(0, Math.min(5, Number(rating) || 0));
+    return Array.from({ length: 5 }, (_, index) => (
+        `<i class="${index < value ? 'fas' : 'far'} fa-star" style="color: var(--warning);"></i>`
+    )).join('');
+}
+
 // ============== UTILITY FUNCTIONS ==============
 
 function showLoading() {
@@ -856,6 +1041,16 @@ function showNotification(message, type) {
     }, 3000);
 }
 
+function escapeHtml(value) {
+    return String(value).replace(/[&<>"']/g, char => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+    }[char]));
+}
+
 // Make functions globally available for inline onclick handlers
 window.editPaper = editPaper;
 window.viewPaper = viewPaper;
@@ -866,3 +1061,6 @@ window.resetFilters = resetFilters;
 window.closeViewModal = closeViewModal;
 window.confirmDelete = confirmDelete;
 window.loadPapers = loadPapers;
+window.loadComments = loadComments;
+window.openReplyModal = openReplyModal;
+window.closeReplyModal = closeReplyModal;

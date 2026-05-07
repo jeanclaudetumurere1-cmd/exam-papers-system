@@ -126,6 +126,41 @@
             color: var(--text-secondary);
             margin-top: 5px;
         }
+
+        .comments-header {
+            margin-top: 2rem;
+        }
+
+        .comments-table-container {
+            margin-top: 0;
+        }
+
+        .comment-text {
+            max-width: 280px;
+            white-space: normal;
+            color: var(--text-secondary);
+        }
+
+        .admin-reply-text {
+            max-width: 260px;
+            white-space: normal;
+            color: var(--success);
+        }
+
+        .comment-preview {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+            color: var(--text-secondary);
+        }
+
+        #adminReplyText {
+            width: 100%;
+            min-height: 140px;
+            resize: vertical;
+        }
     </style>
 </head>
 <body>
@@ -196,6 +231,14 @@
                 <div class="quick-stat">
                     <div class="label">TVET</div>
                     <div class="value" id="tvetCount">0</div>
+                </div>
+                <div class="quick-stat">
+                    <div class="label">Comments</div>
+                    <div class="value" id="commentsCount">0</div>
+                </div>
+                <div class="quick-stat">
+                    <div class="label">Admin Replies</div>
+                    <div class="value" id="repliesCount">0</div>
                 </div>
             </div>
             
@@ -320,6 +363,39 @@
                 <button class="page-btn" id="nextPage" disabled>
                     Next <i class="fas fa-chevron-right"></i>
                 </button>
+            </div>
+
+            <!-- Student Comments -->
+            <div class="page-header comments-header">
+                <h1>Student Comments</h1>
+                <button class="btn btn-secondary" id="refreshCommentsBtn">
+                    <i class="fas fa-sync-alt"></i> Refresh Comments
+                </button>
+            </div>
+
+            <div class="table-container comments-table-container">
+                <table id="commentsTable">
+                    <thead>
+                        <tr>
+                            <th>Paper</th>
+                            <th>Student</th>
+                            <th>Comment</th>
+                            <th>Rating</th>
+                            <th>Likes</th>
+                            <th>Admin Reply</th>
+                            <th>Date</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="commentsTableBody">
+                        <tr>
+                            <td colspan="8" class="text-center">
+                                <div class="loading-spinner"></div>
+                                <p>Loading comments...</p>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </main>
     </div>
@@ -447,6 +523,31 @@
             
             <div class="modal-actions">
                 <button class="btn btn-secondary" onclick="closeViewModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reply Comment Modal -->
+    <div id="replyModal" class="modal">
+        <div class="modal-content" style="max-width: 560px;">
+            <div class="modal-header">
+                <h2>Reply to Comment</h2>
+                <button class="close-btn" id="closeReplyModalBtn">&times;</button>
+            </div>
+
+            <div class="modal-body">
+                <div class="comment-preview" id="replyCommentPreview"></div>
+                <div class="form-group">
+                    <label>Admin Reply</label>
+                    <textarea id="adminReplyText" rows="5" placeholder="Write your reply..." required></textarea>
+                </div>
+            </div>
+
+            <div class="modal-actions">
+                <button class="btn btn-secondary" id="cancelReplyBtn">Cancel</button>
+                <button class="btn btn-primary" id="saveReplyBtn">
+                    <i class="fas fa-reply"></i> Save Reply
+                </button>
             </div>
         </div>
     </div>

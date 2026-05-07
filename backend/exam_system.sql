@@ -37,6 +37,34 @@ CREATE TABLE IF NOT EXISTS downloads (
     INDEX idx_paper_id (paper_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Comments table for student feedback
+CREATE TABLE IF NOT EXISTS comments (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    paper_id INT NOT NULL,
+    student_name VARCHAR(100) NOT NULL,
+    student_email VARCHAR(100) NOT NULL,
+    comment TEXT NOT NULL,
+    rating INT DEFAULT NULL CHECK (rating >= 1 AND rating <= 5),
+    likes INT DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (paper_id) REFERENCES exam_papers(id) ON DELETE CASCADE,
+    INDEX idx_paper_id (paper_id),
+    INDEX idx_created_at (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Paper ratings and interactions
+CREATE TABLE IF NOT EXISTS paper_interactions (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    paper_id INT NOT NULL,
+    interaction_type ENUM('view', 'like', 'bookmark') NOT NULL,
+    user_identifier VARCHAR(255), -- IP or session ID for anonymous users
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (paper_id) REFERENCES exam_papers(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_interaction (paper_id, interaction_type, user_identifier),
+    INDEX idx_paper_id (paper_id),
+    INDEX idx_interaction_type (interaction_type)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Insert sample data
 INSERT INTO exam_papers (year, subject, level, file_path, status) VALUES
 (2023, 'Mathematics', 'O-Level', 'uploads/sample1.pdf', 'active'),
