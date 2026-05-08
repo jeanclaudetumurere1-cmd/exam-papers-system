@@ -5,6 +5,7 @@ import cookieParser from 'cookie-parser';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import routes from './routes/index.js';
+import { isDatabaseReady } from './config/database.js';
 import { env } from './config/env.js';
 import { notFound } from './middleware/notFound.js';
 import { errorHandler } from './middleware/errorHandler.js';
@@ -71,6 +72,7 @@ app.get('/health', (req, res) => {
   res.json({
     success: true,
     status: 'ok',
+    database: isDatabaseReady() ? 'ready' : 'warming',
     uptime: process.uptime(),
     timestamp: new Date().toISOString()
   });

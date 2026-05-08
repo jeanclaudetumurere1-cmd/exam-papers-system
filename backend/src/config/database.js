@@ -1,6 +1,16 @@
 import mysql from 'mysql2/promise';
 import { env } from './env.js';
 
+let databaseReady = false;
+
+export function setDatabaseReady(value) {
+  databaseReady = Boolean(value);
+}
+
+export function isDatabaseReady() {
+  return databaseReady;
+}
+
 function getSslConfig() {
   if (!env.db.ssl) return undefined;
 
