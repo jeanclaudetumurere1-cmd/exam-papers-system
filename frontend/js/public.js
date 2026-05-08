@@ -8,8 +8,19 @@ let filteredPapers = [];
 let currentPage = 1;
 const itemsPerPage = 12;
 let currentView = 'grid';
-let bookmarks = JSON.parse(localStorage.getItem('bookmarks')) || [];
-let likedPapers = JSON.parse(localStorage.getItem('likedPapers')) || [];
+let bookmarks = [];
+let likedPapers = [];
+
+try {
+    bookmarks = JSON.parse(localStorage.getItem('bookmarks')) || [];
+} catch (e) {
+    bookmarks = [];
+}
+try {
+    likedPapers = JSON.parse(localStorage.getItem('likedPapers')) || [];
+} catch (e) {
+    likedPapers = [];
+}
 let currentPaperForShare = null;
 let searchFallbackActive = false;
 let searchFallbackQuery = '';
@@ -92,9 +103,9 @@ async function loadPapers() {
     }
     
     try {
-        // Use the correct API endpoint
-        console.log('Fetching from /api/papers...');
-        const response = await fetch('/api/papers');
+        // Use the public API endpoint instead of the admin one
+        console.log('Fetching from /api/papers/public...');
+        const response = await fetch('/api/papers/public');
         console.log('Response status:', response.status);
         
         if (!response.ok) {
