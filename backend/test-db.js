@@ -5,14 +5,17 @@ console.log('\n🔍 Testing Database Connection');
 console.log('================================');
 
 const config = {
-    host: process.env.DB_HOST || 'localhost',
-    user: process.env.DB_USER || 'root',
-    password: process.env.DB_PASSWORD || '',
-    database: process.env.DB_NAME || 'exam_system'
+    host: process.env.MYSQL_HOST,
+    port: Number(process.env.MYSQL_PORT || 3306),
+    user: process.env.MYSQL_USER,
+    password: process.env.MYSQL_PASSWORD,
+    database: process.env.MYSQL_DATABASE,
+    ssl: { rejectUnauthorized: false }
 };
 
 console.log('Configuration:');
 console.log(`Host: ${config.host}`);
+console.log(`Port: ${config.port}`);
 console.log(`User: ${config.user}`);
 console.log(`Password: ${config.password ? '******' : '(empty)'}`);
 console.log(`Database: ${config.database}`);
@@ -34,20 +37,17 @@ async function main() {
         if (tables.length === 0) {
             console.log('  No tables found. Run setup-database.js or import the SQL file.');
         } else {
-            tables.forEach(table => {
-                console.log(`  - ${table.Tables_in_exam_system || Object.values(table)[0]}`);
-            });
+            tables.forEach(table => console.log(`  - ${Object.values(table)[0]}`));
         }
 
         console.log('\n✅ Test complete');
     } catch (err) {
         console.error('❌ Database test failed:', err.message);
         console.log('\nTroubleshooting:');
-        console.log('1. Make sure MySQL is running in XAMPP');
-        console.log('2. Open XAMPP Control Panel and start MySQL');
-        console.log('3. Check if password is correct (XAMPP default is empty)');
-        console.log('4. Try: mysql -u root -p');
-        console.log('5. Create database: CREATE DATABASE exam_system;');
+        console.log('1. Confirm MYSQL_HOST, MYSQL_PORT, MYSQL_USER, MYSQL_PASSWORD, and MYSQL_DATABASE are set');
+        console.log('2. Confirm the Aiven MySQL service is running');
+        console.log('3. Confirm SSL is enabled for the connection');
+        console.log('4. Import backend/exam_system.sql if the database is empty');
         process.exit(1);
     } finally {
         if (connection) {

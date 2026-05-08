@@ -11,19 +11,46 @@ const { authenticateToken, preventCache } = require('./middleware/auth');
 const ensureSchema = require('./utils/ensureSchema');
 
 const app = express();
+app.disable('x-powered-by');
 
-const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:1000')
+const allowedOrigins = (process.env.CORS_ORIGIN || '')
     .split(',')
     .map(origin => origin.trim())
     .filter(Boolean);
 
+const frontendDir = path.join(__dirname, '../frontend');
+const staticCacheOptions = {
+    etag: true,
+    lastModified: true,
+    maxAge: process.env.STATIC_CACHE_MAX_AGE || '1d',
+    dotfiles: 'deny'
+};
+
+const htmlCacheOptions = {
+    etag: true,
+    lastModified: true,
+    maxAge: 0,
+    dotfiles: 'deny',
+    setHeaders: (res) => {
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    }
+};
+
 // Middleware
+app.use((req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+    next();
+});
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());
 app.use(cors({
     origin: (origin, callback) => {
-        if (!origin || allowedOrigins.includes(origin)) {
+        if (!origin || allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
             return callback(null, true);
         }
 
@@ -34,13 +61,31 @@ app.use(cors({
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept']
 }));
 
+// Do not expose development/source files from the browser.
+app.use(['/src', '/package.json', '/package-lock.json', '/node_modules', '/.git'], (req, res) => {
+    res.status(404).send('Not found');
+});
+
 // Serve static files
-app.use(express.static(path.join(__dirname, '../frontend')));
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-app.use('/css', express.static(path.join(__dirname, '../frontend/css')));
-app.use('/js', express.static(path.join(__dirname, '../frontend/js')));
-app.use('/admin', express.static(path.join(__dirname, '../frontend/admin')));
-app.use('/public', express.static(path.join(__dirname, '../frontend/public')));
+app.use(express.static('public'));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads'), staticCacheOptions));
+app.use('/images', express.static(path.join(frontendDir, 'images'), staticCacheOptions));
+app.use('/css', express.static(path.join(frontendDir, 'css'), staticCacheOptions));
+app.use('/js', express.static(path.join(frontendDir, 'js'), staticCacheOptions));
+app.use('/admin/js', express.static(path.join(frontendDir, 'admin/js'), staticCacheOptions));
+app.use('/admin', express.static(path.join(frontendDir, 'admin'), htmlCacheOptions));
+app.use('/public/css', express.static(path.join(frontendDir, 'public/css'), staticCacheOptions));
+app.use('/public/js', express.static(path.join(frontendDir, 'public/js'), staticCacheOptions));
+app.use('/public', express.static(path.join(frontendDir, 'public'), htmlCacheOptions));
+app.use(express.static(path.join(frontendDir, 'public'), htmlCacheOptions));
+
+app.get('/health', (req, res) => {
+    res.json({
+        success: true,
+        status: 'online',
+        uptime: process.uptime()
+    });
+});
 
 // Apply cache prevention to admin routes
 app.use('/api/papers/admin', preventCache);
@@ -126,7 +171,7 @@ app.use((err, req, res, next) => {
     });
 });
 
-const PORT = process.env.PORT || 1000;
+const PORT = process.env.PORT || 3000;
 ensureSchema().catch(error => {
     console.error('Database schema check failed:', error);
 }).finally(() => app.listen(PORT, () => {
@@ -134,8 +179,9 @@ ensureSchema().catch(error => {
     console.log('🚀 NESA PORTAL SERVER STARTED');
     console.log('=================================');
     console.log(`📡 Port: ${PORT}`);
-    console.log(`📍 Public: http://localhost:${PORT}/public/index.html`);
-    console.log(`🔐 Admin: http://localhost:${PORT}/admin/login.html`);
-    console.log(`📊 API: http://localhost:${PORT}/api/status`);
+    console.log(`📍 Public: /public/index.html`);
+    console.log(`🔐 Admin: /admin/login.html`);
+    console.log(`📊 API: /api/status`);
     console.log('=================================\n');
 }));
+

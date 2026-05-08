@@ -25,6 +25,15 @@ body {
     line-height: 1.6;
 }
 
+.login-logo {
+    display: block;
+    width: 76px;
+    height: 76px;
+    object-fit: contain;
+    margin: 0 auto 1rem;
+    border-radius: 12px;
+}
+
 /* Admin Layout */
 .admin-container {
     display: flex;
@@ -45,9 +54,24 @@ body {
     border-bottom: 1px solid var(--border-color);
 }
 
+.brand-mark {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.25rem;
+}
+
+.brand-mark img {
+    width: 42px;
+    height: 42px;
+    object-fit: contain;
+    border-radius: 8px;
+    background: var(--bg-card);
+}
+
 .sidebar-header h2 {
     font-size: 1.5rem;
-    margin-bottom: 0.25rem;
+    margin-bottom: 0;
 }
 
 .sidebar-header h2 span {
@@ -349,6 +373,16 @@ tr:hover {
 }
 
 .action-btn.edit {
+    background: var(--accent-primary);
+}
+
+.action-btn.view {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+}
+
+.action-btn.view:hover {
     background: var(--accent-primary);
 }
 

@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Manage Papers - NESA Past Papers Portal</title>
+    <link rel="icon" type="image/png" href="/images/logo.png">
+    <link rel="apple-touch-icon" href="/images/logo.png">
     <link rel="stylesheet" href="/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     
@@ -161,6 +163,50 @@
             min-height: 140px;
             resize: vertical;
         }
+
+        .storage-summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .storage-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 15px;
+        }
+
+        .storage-card .label {
+            color: var(--text-secondary);
+            font-size: 12px;
+            margin-bottom: 5px;
+        }
+
+        .storage-card .value {
+            color: var(--text-primary);
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        .bulk-actions {
+            display: none;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 15px;
+        }
+
+        .bulk-actions.active {
+            display: flex;
+        }
+
+        .file-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
     </style>
 </head>
 <body>
@@ -168,7 +214,10 @@
         <!-- Sidebar -->
         <aside class="sidebar">
             <div class="sidebar-header">
-                <h2>NESA<span>Portal</span></h2>
+                <div class="brand-mark">
+                    <img src="/images/logo.png" alt="NESA Portal logo">
+                    <h2>NESA<span>Portal</span></h2>
+                </div>
                 <p>Admin Panel</p>
             </div>
             
@@ -199,6 +248,28 @@
                     <button class="btn btn-secondary" id="exportBtn">
                         <i class="fas fa-download"></i> Export List
                     </button>
+                    <button class="btn btn-secondary" id="refreshStorageBtn">
+                        <i class="fas fa-folder-open"></i> Check Uploads
+                    </button>
+                </div>
+            </div>
+
+            <div class="storage-summary">
+                <div class="storage-card">
+                    <div class="label">Upload Folder</div>
+                    <div class="value" id="uploadFolderLabel">backend/uploads</div>
+                </div>
+                <div class="storage-card">
+                    <div class="label">Files on Disk</div>
+                    <div class="value" id="filesOnDiskCount">...</div>
+                </div>
+                <div class="storage-card">
+                    <div class="label">Upload Size</div>
+                    <div class="value" id="uploadTotalSize">...</div>
+                </div>
+                <div class="storage-card">
+                    <div class="label">Missing Files</div>
+                    <div class="value" id="missingFileCount">...</div>
                 </div>
             </div>
             
@@ -328,10 +399,23 @@
             </div>
             
             <!-- Papers Table -->
+            <div class="bulk-actions" id="bulkActions">
+                <span id="selectedCount">0 selected</span>
+                <button class="btn btn-secondary btn-sm" id="bulkActivateBtn">
+                    <i class="fas fa-eye"></i> Activate
+                </button>
+                <button class="btn btn-secondary btn-sm" id="bulkDeactivateBtn">
+                    <i class="fas fa-eye-slash"></i> Deactivate
+                </button>
+                <button class="btn btn-secondary btn-sm" id="bulkExportBtn">
+                    <i class="fas fa-file-export"></i> Export Selected
+                </button>
+            </div>
             <div class="table-container">
                 <table id="papersTable">
                     <thead>
                         <tr>
+                            <th><input type="checkbox" id="selectAllPapers" aria-label="Select all papers"></th>
                             <th>ID</th>
                             <th>Year</th>
                             <th>Subject</th>
@@ -345,7 +429,7 @@
                     </thead>
                     <tbody id="papersTableBody">
                         <tr>
-                            <td colspan="9" class="text-center">
+                            <td colspan="10" class="text-center">
                                 <div class="loading-spinner"></div>
                                 <p>Loading papers...</p>
                             </td>
@@ -557,5 +641,6 @@
     
     <script src="/js/auth.js"></script>
     <script src="/admin/js/manage-papers.js"></script>
+    <script src="/js/protect-source.js"></script>
 </body>
 </html>

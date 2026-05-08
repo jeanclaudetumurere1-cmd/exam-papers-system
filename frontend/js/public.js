@@ -22,6 +22,7 @@ try {
     likedPapers = [];
 }
 let currentPaperForShare = null;
+let currentPreviewPaper = null;
 let searchFallbackActive = false;
 let searchFallbackQuery = '';
 
@@ -366,8 +367,9 @@ function displayPapers() {
                         <button class="action-btn share" onclick="sharePaper(${paper.id})" title="Share">
                             <i class="fas fa-share-alt"></i>
                         </button>
-                        <button class="action-btn preview" onclick="previewPaper('${fileUrl}', '${subject}')" title="Preview">
+                        <button class="action-btn preview wide" onclick="previewPaper(${paper.id})" title="View Paper">
                             <i class="fas fa-eye"></i>
+                            <span>View</span>
                         </button>
                         <button class="action-btn bookmark ${isBookmarked ? 'active' : ''}" 
                                 onclick="toggleBookmark(${paper.id})" title="Bookmark">
@@ -417,8 +419,9 @@ function displayPapers() {
                         <button class="action-btn share" onclick="sharePaper(${paper.id})" title="Share">
                             <i class="fas fa-share-alt"></i>
                         </button>
-                        <button class="action-btn preview" onclick="previewPaper('${fileUrl}', '${subject}')" title="Preview">
+                        <button class="action-btn preview wide" onclick="previewPaper(${paper.id})" title="View Paper">
                             <i class="fas fa-eye"></i>
+                            <span>View</span>
                         </button>
                         <button class="action-btn bookmark ${isBookmarked ? 'active' : ''}" 
                                 onclick="toggleBookmark(${paper.id})" title="Bookmark">
@@ -604,17 +607,18 @@ function setView(view) {
 
 async function downloadPaper(id, fileUrl) {
     try {
-        await fetch('/api/analytics/track-download', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ paperId: id })
-        });
-        
-        window.open(fileUrl, '_blank');
+        const downloadUrl = `/api/papers/${id}/download`;
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.download = '';
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
         showNotification('Download started', 'success');
     } catch (error) {
         console.error('Error tracking download:', error);
-        window.open(fileUrl, '_blank');
+        window.location.href = fileUrl;
     }
 }
 
@@ -663,15 +667,60 @@ function printPaper(fileUrl) {
     };
 }
 
-function previewPaper(fileUrl, title) {
+function previewPaper(paperId) {
+    const paper = allPapers.find(item => item.id === paperId) || filteredPapers.find(item => item.id === paperId);
+    if (!paper?.file_path) {
+        showNotification('Paper file is not available', 'error');
+        return;
+    }
+
+    currentPreviewPaper = paper;
+    const fileUrl = `/${paper.file_path.replace(/\\/g, '/')}`;
+    const title = `${paper.subject || 'Paper'} ${paper.year ? `(${paper.year})` : ''}`;
+
     document.getElementById('previewFrame').src = fileUrl;
     document.getElementById('previewTitle').textContent = title;
+    document.getElementById('previewSubtitle').textContent = [paper.level, paper.category, paper.trade_or_combination].filter(Boolean).join(' • ');
+    document.getElementById('previewLikeBtn')?.classList.toggle('active', likedPapers.includes(paper.id));
+    document.getElementById('previewBookmarkBtn')?.classList.toggle('active', bookmarks.includes(paper.id));
+    document.body.classList.add('viewer-open');
     document.getElementById('previewModal').classList.add('active');
+    recordPaperInteraction(paper.id, 'view').catch(error => console.error('Error recording view:', error));
 }
 
 function closePreview() {
     document.getElementById('previewModal').classList.remove('active');
     document.getElementById('previewFrame').src = '';
+    document.body.classList.remove('viewer-open');
+    currentPreviewPaper = null;
+}
+
+function downloadCurrentPreviewPaper() {
+    if (!currentPreviewPaper) return;
+    const fileUrl = `/${currentPreviewPaper.file_path.replace(/\\/g, '/')}`;
+    downloadPaper(currentPreviewPaper.id, fileUrl);
+}
+
+function likeCurrentPreviewPaper() {
+    if (!currentPreviewPaper) return;
+    likePaper(currentPreviewPaper.id);
+    document.getElementById('previewLikeBtn')?.classList.toggle('active', likedPapers.includes(currentPreviewPaper.id));
+}
+
+function commentCurrentPreviewPaper() {
+    if (!currentPreviewPaper) return;
+    showComments(currentPreviewPaper.id, escapeHtml(currentPreviewPaper.subject || 'Paper'));
+}
+
+function shareCurrentPreviewPaper() {
+    if (!currentPreviewPaper) return;
+    sharePaper(currentPreviewPaper.id);
+}
+
+function bookmarkCurrentPreviewPaper() {
+    if (!currentPreviewPaper) return;
+    toggleBookmark(currentPreviewPaper.id);
+    document.getElementById('previewBookmarkBtn')?.classList.toggle('active', bookmarks.includes(currentPreviewPaper.id));
 }
 
 function closeShareModal() {
@@ -1184,6 +1233,11 @@ window.sharePaper = sharePaper;
 window.printPaper = printPaper;
 window.previewPaper = previewPaper;
 window.closePreview = closePreview;
+window.downloadCurrentPreviewPaper = downloadCurrentPreviewPaper;
+window.likeCurrentPreviewPaper = likeCurrentPreviewPaper;
+window.commentCurrentPreviewPaper = commentCurrentPreviewPaper;
+window.shareCurrentPreviewPaper = shareCurrentPreviewPaper;
+window.bookmarkCurrentPreviewPaper = bookmarkCurrentPreviewPaper;
 window.toggleBookmark = toggleBookmark;
 window.showBookmarks = showBookmarks;
 window.changePage = changePage;

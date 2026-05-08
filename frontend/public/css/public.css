@@ -714,6 +714,18 @@ body {
     font-size: 16px;
 }
 
+.action-btn.wide {
+    width: auto;
+    min-width: 78px;
+    padding: 0 12px;
+    gap: 7px;
+}
+
+.action-btn.wide span {
+    font-size: 13px;
+    font-weight: 600;
+}
+
 .action-btn:hover {
     background: var(--primary);
     color: white;
@@ -840,8 +852,13 @@ body {
 }
 
 .preview-modal {
-    max-width: 1000px;
-    height: 80vh;
+    width: 100vw;
+    height: 100vh;
+    max-width: none;
+    max-height: none;
+    border-radius: 0;
+    display: flex;
+    flex-direction: column;
 }
 
 .share-modal {
@@ -882,9 +899,87 @@ body {
 
 #previewFrame {
     width: 100%;
-    height: 70vh;
+    height: 100%;
     border: none;
-    border-radius: 12px;
+    border-radius: 0;
+}
+
+body.viewer-open {
+    overflow: hidden;
+}
+
+#previewModal {
+    background: var(--bg-primary);
+    backdrop-filter: none;
+}
+
+.viewer-header {
+    min-height: 68px;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+}
+
+.viewer-title {
+    min-width: 0;
+}
+
+.viewer-title h2 {
+    font-size: 17px;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.viewer-title p {
+    color: var(--text-secondary);
+    font-size: 12px;
+    margin-top: 2px;
+}
+
+.viewer-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.viewer-action {
+    width: 42px;
+    height: 42px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg-card);
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transition);
+}
+
+.viewer-action:hover,
+.viewer-action.active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: white;
+}
+
+.viewer-action.close:hover {
+    background: var(--danger);
+    border-color: var(--danger);
+}
+
+.viewer-body {
+    flex: 1;
+    min-height: 0;
+    background: #111827;
 }
 
 /* Share Modal */
@@ -1048,6 +1143,22 @@ body {
     .whatsapp-btn:hover {
         width: 60px;
         padding: 0;
+    }
+
+    .viewer-header {
+        align-items: flex-start;
+        flex-direction: column;
+        min-height: 112px;
+    }
+
+    .viewer-actions {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .viewer-action {
+        width: 40px;
+        height: 40px;
     }
 }
 

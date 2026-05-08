@@ -10,11 +10,11 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="/public/css/public.css">
+    <link rel="stylesheet" href="/public/css/public.css?v=2">
     
     <!-- Favicon -->
-    <link rel="icon" type="image/png" href="/public/assets/icons/nesa-logo.png" alt="NESA Logo" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 fill=%22%233b82f6%22/><text x=%2220%22 y=%2265%22 fill=%22white%22 font-size=%2250%22>N</text></svg>'">
-">
+    <link rel="icon" type="image/png" href="/images/logo.png">
+    <link rel="apple-touch-icon" href="/images/logo.png">
 </head>
 <body>
     <!-- WhatsApp Support Button -->
@@ -29,7 +29,7 @@
         <aside class="public-sidebar" id="sidebar">
             <div class="sidebar-header">
                 <div class="logo">
-                    <img src="/public/assets/icons/nesa-logo.png" alt="NESA Logo" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 fill=%22%233b82f6%22/><text x=%2220%22 y=%2265%22 fill=%22white%22 font-size=%2250%22>N</text></svg>'">
+                    <img src="/images/logo.png" alt="NESA Logo">
                     <h2>NESA<span>Portal</span></h2>
                 </div>
                 <p>Rwanda National Exams</p>
@@ -246,11 +246,33 @@
     <!-- Paper Preview Modal -->
     <div class="modal" id="previewModal">
         <div class="modal-content preview-modal">
-            <div class="modal-header">
-                <h2 id="previewTitle">Paper Preview</h2>
-                <button class="close-btn" onclick="closePreview()">&times;</button>
+            <div class="viewer-header">
+                <div class="viewer-title">
+                    <h2 id="previewTitle">Paper Preview</h2>
+                    <p id="previewSubtitle"></p>
+                </div>
+                <div class="viewer-actions">
+                    <button class="viewer-action" onclick="downloadCurrentPreviewPaper()" title="Download">
+                        <i class="fas fa-download"></i>
+                    </button>
+                    <button class="viewer-action" id="previewLikeBtn" onclick="likeCurrentPreviewPaper()" title="Like">
+                        <i class="fas fa-heart"></i>
+                    </button>
+                    <button class="viewer-action" onclick="commentCurrentPreviewPaper()" title="Comment">
+                        <i class="fas fa-comment"></i>
+                    </button>
+                    <button class="viewer-action" onclick="shareCurrentPreviewPaper()" title="Share">
+                        <i class="fas fa-share-alt"></i>
+                    </button>
+                    <button class="viewer-action" id="previewBookmarkBtn" onclick="bookmarkCurrentPreviewPaper()" title="Bookmark">
+                        <i class="fas fa-bookmark"></i>
+                    </button>
+                    <button class="viewer-action close" onclick="closePreview()" title="Close">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
             </div>
-            <div class="modal-body">
+            <div class="viewer-body">
                 <iframe id="previewFrame" src="" frameborder="0"></iframe>
             </div>
         </div>
@@ -284,7 +306,8 @@
     <div id="notificationContainer"></div>
 
     <!-- Scripts -->
-    <script src="/js/public.js?v=4"></script>
+    <script src="/js/public.js?v=5"></script>
+    <script src="/js/protect-source.js"></script>
     <script>
         // Track page visit
         trackVisit();

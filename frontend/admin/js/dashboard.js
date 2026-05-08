@@ -1,6 +1,7 @@
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Dashboard initializing...');
     loadDashboardData();
+    loadStorageSummary();
     setupEventListeners();
     setCurrentDate();
 });
@@ -241,6 +242,76 @@ function updateRecentActivity(papers) {
     }).join('');
 }
 
+async function loadStorageSummary() {
+    try {
+        const response = await fetch('/api/papers/admin/storage', {
+            method: 'GET',
+            credentials: 'include',
+            headers: {
+                'Cache-Control': 'no-cache',
+                'Accept': 'application/json'
+            }
+        });
+
+        const result = await response.json();
+        if (!response.ok || !result.success) {
+            throw new Error(result.message || 'Failed to load storage summary');
+        }
+
+        const storage = result.data;
+        document.getElementById('filesOnDisk').textContent = storage.filesOnDisk ?? 0;
+        document.getElementById('uploadSize').textContent = formatBytes(storage.totalBytes || 0);
+        document.getElementById('databaseFiles').textContent = storage.databaseFiles ?? 0;
+        document.getElementById('missingFiles').textContent = storage.missingFiles?.length || 0;
+        document.getElementById('uploadFolderPath').textContent = `${storage.uploadFolder} served as ${storage.publicPath}`;
+    } catch (error) {
+        console.error('Error loading storage summary:', error);
+        await loadStorageSummaryFallback();
+    }
+}
+
+async function loadStorageSummaryFallback() {
+    try {
+        const response = await fetch('/api/papers/admin', {
+            credentials: 'include',
+            headers: {
+                'Cache-Control': 'no-cache',
+                'Accept': 'application/json'
+            }
+        });
+
+        if (response.status === 401 || response.status === 403) {
+            window.location.href = '/admin/login.html';
+            return;
+        }
+
+        const result = await response.json();
+        const papers = result.success && Array.isArray(result.data) ? result.data : [];
+        const databaseFiles = papers.filter(paper => paper.file_path).length;
+
+        document.getElementById('filesOnDisk').textContent = databaseFiles;
+        document.getElementById('uploadSize').textContent = 'N/A';
+        document.getElementById('databaseFiles').textContent = databaseFiles;
+        document.getElementById('missingFiles').textContent = 'N/A';
+        document.getElementById('uploadFolderPath').textContent = 'backend/uploads';
+    } catch (fallbackError) {
+        console.error('Storage fallback failed:', fallbackError);
+        document.getElementById('filesOnDisk').textContent = '0';
+        document.getElementById('uploadSize').textContent = 'N/A';
+        document.getElementById('databaseFiles').textContent = '0';
+        document.getElementById('missingFiles').textContent = 'N/A';
+    }
+}
+
+function formatBytes(bytes) {
+    if (!bytes) return '0 B';
+
+    const units = ['B', 'KB', 'MB', 'GB'];
+    const index = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+    const value = bytes / Math.pow(1024, index);
+    return `${value.toFixed(value >= 10 || index === 0 ? 0 : 1)} ${units[index]}`;
+}
+
 function getTimeAgo(date) {
     const now = new Date();
     const diffMs = now - date;
@@ -280,3 +351,4 @@ function showNotification(message, type) {
 
 // Make functions available globally
 window.loadDashboardData = loadDashboardData;
+window.loadStorageSummary = loadStorageSummary;

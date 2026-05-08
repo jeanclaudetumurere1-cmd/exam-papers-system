@@ -1,21 +1,35 @@
 require('dotenv').config();
 const mysql = require('mysql2/promise');
 
-const useSsl = process.env.DB_SSL === 'true' || process.env.NODE_ENV === 'production';
+const requiredEnvVars = [
+    'MYSQL_HOST',
+    'MYSQL_PORT',
+    'MYSQL_USER',
+    'MYSQL_PASSWORD',
+    'MYSQL_DATABASE'
+];
+
+if (process.env.NODE_ENV === 'production') {
+    const missingEnvVars = requiredEnvVars.filter(key => !process.env[key]);
+
+    if (missingEnvVars.length) {
+        throw new Error(`Missing required database environment variables: ${missingEnvVars.join(', ')}`);
+    }
+}
 
 // Create connection pool
 const pool = mysql.createPool({
-    host: process.env.DB_HOST || 'localhost',
-    port: Number(process.env.DB_PORT || 3306),
-    user: process.env.DB_USER || 'root',
-    password: process.env.DB_PASSWORD || '',
-    database: process.env.DB_NAME || 'exam_system',
+    host: process.env.MYSQL_HOST,
+    port: Number(process.env.MYSQL_PORT || 3306),
+    user: process.env.MYSQL_USER,
+    password: process.env.MYSQL_PASSWORD,
+    database: process.env.MYSQL_DATABASE,
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0,
     enableKeepAlive: true,
     keepAliveInitialDelay: 0,
-    ssl: useSsl ? { rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false' } : undefined
+    ssl: { rejectUnauthorized: false }
 });
 
 // Test database connection
@@ -34,10 +48,10 @@ async function testDatabaseConnection() {
     } catch (err) {
         console.error('❌ Database connection failed:', err.message);
         console.error('\nTroubleshooting:');
-        console.error('1. Make sure MySQL is running in XAMPP');
-        console.error('2. Check if database "exam_system" exists');
-        console.error('3. Verify credentials in .env file');
-        console.error('4. Try: mysql -u root -p -e "CREATE DATABASE exam_system"\n');
+        console.error('1. Confirm the MYSQL_* environment variables are set');
+        console.error('2. Confirm the Aiven host, port, user, password, and database are correct');
+        console.error('3. Confirm Aiven MySQL allows SSL connections');
+        console.error('4. Import the schema if the database is empty\n');
         return false;
     } finally {
         if (connection) {

@@ -2,14 +2,13 @@ require('dotenv').config();
 const mysql = require('mysql2/promise');
 
 async function main() {
-    const databaseName = process.env.DB_NAME || 'exam_system';
-    const useSsl = process.env.DB_SSL === 'true' || process.env.NODE_ENV === 'production';
+    const databaseName = process.env.MYSQL_DATABASE;
     const config = {
-        host: process.env.DB_HOST || 'localhost',
-        port: Number(process.env.DB_PORT || 3306),
-        user: process.env.DB_USER || 'root',
-        password: process.env.DB_PASSWORD || '',
-        ssl: useSsl ? { rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false' } : undefined
+        host: process.env.MYSQL_HOST,
+        port: Number(process.env.MYSQL_PORT || 3306),
+        user: process.env.MYSQL_USER,
+        password: process.env.MYSQL_PASSWORD,
+        ssl: { rejectUnauthorized: false }
     };
 
     let connection;

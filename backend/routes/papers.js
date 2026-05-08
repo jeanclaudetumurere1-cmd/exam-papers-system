@@ -39,6 +39,32 @@ const upload = multer({
     limits: { fileSize: 10 * 1024 * 1024 }
 });
 
+function getDirectorySize(dir) {
+    if (!fs.existsSync(dir)) return { files: 0, bytes: 0 };
+
+    return fs.readdirSync(dir, { withFileTypes: true }).reduce((totals, entry) => {
+        const entryPath = path.join(dir, entry.name);
+
+        if (entry.isDirectory()) {
+            const childTotals = getDirectorySize(entryPath);
+            return {
+                files: totals.files + childTotals.files,
+                bytes: totals.bytes + childTotals.bytes
+            };
+        }
+
+        if (entry.isFile()) {
+            const stats = fs.statSync(entryPath);
+            return {
+                files: totals.files + 1,
+                bytes: totals.bytes + stats.size
+            };
+        }
+
+        return totals;
+    }, { files: 0, bytes: 0 });
+}
+
 // ============== PUBLIC ROUTES ==============
 
 // GET all active papers for public (root route)
@@ -236,6 +262,45 @@ router.get('/admin/comments', authenticateToken, async (req, res) => {
     }
 });
 
+// Admin route - uploaded file storage summary
+router.get('/admin/storage', authenticateToken, async (req, res) => {
+    try {
+        const [papers] = await db.query(
+            'SELECT id, subject, year, file_path FROM exam_papers ORDER BY created_at DESC'
+        );
+
+        const uploadStats = getDirectorySize(uploadDir);
+        const missingFiles = papers
+            .filter(paper => paper.file_path)
+            .filter(paper => !fs.existsSync(path.join(__dirname, '..', paper.file_path)))
+            .map(paper => ({
+                id: paper.id,
+                subject: paper.subject,
+                year: paper.year,
+                file_path: paper.file_path
+            }));
+
+        res.json({
+            success: true,
+            data: {
+                uploadFolder: 'backend/uploads',
+                publicPath: '/uploads',
+                filesOnDisk: uploadStats.files,
+                totalBytes: uploadStats.bytes,
+                databaseFiles: papers.filter(paper => paper.file_path).length,
+                missingFiles
+            }
+        });
+    } catch (error) {
+        console.error('Error fetching upload storage summary:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch upload storage summary',
+            data: null
+        });
+    }
+});
+
 // Admin route - reply to a student comment
 router.post('/admin/comments/:commentId/reply', authenticateToken, async (req, res) => {
     try {
@@ -312,6 +377,50 @@ router.post('/admin/comments/reply', authenticateToken, async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Failed to save reply: ' + error.message
+        });
+    }
+});
+
+// Download a paper without opening it in the browser.
+router.get('/:id/download', async (req, res) => {
+    try {
+        const [rows] = await db.query(
+            'SELECT id, year, subject, level, file_path FROM exam_papers WHERE id = ? AND status = "active"',
+            [req.params.id]
+        );
+
+        if (rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Paper not found'
+            });
+        }
+
+        const paper = rows[0];
+        const filePath = path.resolve(__dirname, '..', paper.file_path);
+        const uploadsRoot = path.resolve(__dirname, '../uploads');
+
+        if (!filePath.startsWith(uploadsRoot) || !fs.existsSync(filePath)) {
+            return res.status(404).json({
+                success: false,
+                message: 'Paper file not found'
+            });
+        }
+
+        if (req.method !== 'HEAD') {
+            await db.query('INSERT INTO downloads (paper_id) VALUES (?)', [paper.id]);
+        }
+
+        const safeSubject = String(paper.subject || 'exam-paper').replace(/[^a-zA-Z0-9_-]+/g, '_');
+        const safeLevel = String(paper.level || '').replace(/[^a-zA-Z0-9_-]+/g, '_');
+        const filename = `${paper.year || ''}_${safeLevel}_${safeSubject}.pdf`.replace(/^_+/, '');
+
+        res.download(filePath, filename);
+    } catch (error) {
+        console.error('Error downloading paper:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to download paper'
         });
     }
 });

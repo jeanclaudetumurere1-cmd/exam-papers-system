@@ -4,25 +4,21 @@ services:
     env: node
     plan: free
     rootDir: backend
-    buildCommand: npm ci --omit=dev
-    startCommand: npm start
+    buildCommand: npm install
+    startCommand: node server.js
     envVars:
       - key: NODE_ENV
         value: production
-      - key: CORS_ORIGIN
+      - key: MYSQL_HOST
         sync: false
-      - key: DB_HOST
+      - key: MYSQL_PORT
         sync: false
-      - key: DB_PORT
+      - key: MYSQL_USER
         sync: false
-      - key: DB_USER
+      - key: MYSQL_PASSWORD
         sync: false
-      - key: DB_PASSWORD
+      - key: MYSQL_DATABASE
         sync: false
-      - key: DB_NAME
-        sync: false
-      - key: DB_SSL
-        value: "true"
       - key: JWT_SECRET
         generateValue: true
       - key: ADMIN_USERNAME

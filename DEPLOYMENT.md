@@ -28,21 +28,24 @@ Import the schema from `backend/exam_system.sql` into the Aiven database. If you
 2. In Render, create a new Blueprint or Web Service from the repo.
 3. If creating manually, use:
    - Root directory: `backend`
-   - Build command: `npm ci --omit=dev`
-   - Start command: `npm start`
+   - Runtime: Node.js
+   - Build command: `npm install`
+   - Start command: `node server.js`
    - Plan: Free
 4. Add these environment variables:
    - `NODE_ENV=production`
-   - `DB_HOST=<Aiven host>`
-   - `DB_PORT=<Aiven port>`
-   - `DB_USER=<Aiven user>`
-   - `DB_PASSWORD=<Aiven password>`
-   - `DB_NAME=<Aiven database>`
-   - `DB_SSL=true`
+   - `MYSQL_HOST=<Aiven host>`
+   - `MYSQL_PORT=<Aiven port>`
+   - `MYSQL_USER=<Aiven user>`
+   - `MYSQL_PASSWORD=<Aiven password>`
+   - `MYSQL_DATABASE=<Aiven database>`
    - `JWT_SECRET=<long random secret>`
    - `ADMIN_USERNAME=<admin username>`
    - `ADMIN_PASSWORD=<strong admin password>`
-   - `CORS_ORIGIN=https://<your-render-app>.onrender.com`
+
+Do not set `PORT` manually in Render. Render provides it automatically, and `backend/server.js` uses `process.env.PORT || 3000`.
+
+The MySQL connection is configured for Aiven SSL with `ssl: { rejectUnauthorized: false }`.
 
 After deploy, open:
 

@@ -7,6 +7,7 @@ let paperToDelete = null;
 let editingId = null;
 let allComments = [];
 let replyingToCommentId = null;
+let selectedPaperIds = new Set();
 
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Manage Papers page initialized');
@@ -14,6 +15,7 @@ document.addEventListener('DOMContentLoaded', function() {
     setupEventListeners();
     loadPapers();
     loadComments();
+    loadStorageSummary();
 });
 
 function initializePage() {
@@ -65,6 +67,14 @@ function setupEventListeners() {
     if (exportBtn) {
         exportBtn.addEventListener('click', exportToCSV);
     }
+
+    document.getElementById('refreshStorageBtn')?.addEventListener('click', loadStorageSummary);
+    document.getElementById('selectAllPapers')?.addEventListener('change', (event) => {
+        setSelectedVisiblePapers(event.target.checked);
+    });
+    document.getElementById('bulkActivateBtn')?.addEventListener('click', () => bulkUpdateStatus('active'));
+    document.getElementById('bulkDeactivateBtn')?.addEventListener('click', () => bulkUpdateStatus('inactive'));
+    document.getElementById('bulkExportBtn')?.addEventListener('click', exportSelectedToCSV);
 
     // Modal close buttons
     const closeModalBtn = document.getElementById('closeModalBtn');
@@ -225,9 +235,11 @@ async function loadPapers() {
 
         // Populate subject filter
         populateSubjectFilter();
+        selectedPaperIds = new Set([...selectedPaperIds].filter(id => allPapers.some(paper => paper.id === id)));
 
         // Update stats
         updateStats();
+        updateBulkActions();
 
         // Apply filters and display
         filteredPapers = [...allPapers];
@@ -240,7 +252,7 @@ async function loadPapers() {
         if (tbody) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="9" class="text-center error-message">
+                    <td colspan="10" class="text-center error-message">
                         <i class="fas fa-exclamation-triangle"></i>
                         <p>Failed to load papers: ${error.message}</p>
                         <button onclick="loadPapers()" class="btn btn-secondary btn-sm">Retry</button>
@@ -360,7 +372,7 @@ function displayPapers() {
     if (paginatedPapers.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="9" class="text-center">
+                <td colspan="10" class="text-center">
                     <i class="fas fa-folder-open" style="font-size: 2rem; color: #4a5568;"></i>
                     <p>No papers found</p>
                 </td>
@@ -374,6 +386,7 @@ function displayPapers() {
         const fileUrl = paper.file_path ? `/${paper.file_path.replace(/\\/g, '/')}` : '#';
         const category = paper.category || 'General';
         const trade = paper.trade_or_combination || '-';
+        const checked = selectedPaperIds.has(paper.id) ? 'checked' : '';
         
         // Determine level class for styling
         let levelClass = '';
@@ -383,9 +396,12 @@ function displayPapers() {
         
         return `
             <tr>
+                <td>
+                    <input type="checkbox" class="paper-select" value="${paper.id}" ${checked} aria-label="Select paper ${paper.id}">
+                </td>
                 <td>${paper.id}</td>
                 <td>${paper.year}</td>
-                <td><strong>${paper.subject}</strong></td>
+                <td><strong>${escapeHtml(paper.subject)}</strong></td>
                 <td><span class="level-badge ${levelClass}">${paper.level}</span></td>
                 <td>
                     <span class="category-badge category-${category.toLowerCase()}">
@@ -393,12 +409,17 @@ function displayPapers() {
                     </span>
                 </td>
                 <td>
-                    ${trade !== '-' ? `<span class="trade-badge">${trade}</span>` : '-'}
+                    ${trade !== '-' ? `<span class="trade-badge">${escapeHtml(trade)}</span>` : '-'}
                 </td>
                 <td>
-                    <a href="${fileUrl}" target="_blank" class="download-link">
-                        <i class="fas fa-file-pdf"></i> View
-                    </a>
+                    <div class="file-actions">
+                        <a href="${fileUrl}" target="_blank" class="download-link">
+                            <i class="fas fa-file-pdf"></i> View
+                        </a>
+                        <button class="action-btn view" onclick="copyFileLink('${fileUrl}')" title="Copy file link">
+                            <i class="fas fa-link"></i>
+                        </button>
+                    </div>
                 </td>
                 <td>
                     <span class="status-badge ${paper.status === 'active' ? 'status-active' : 'status-inactive'}">
@@ -427,7 +448,20 @@ function displayPapers() {
         `;
     }).join('');
 
+    tbody.querySelectorAll('.paper-select').forEach(checkbox => {
+        checkbox.addEventListener('change', event => {
+            const id = Number(event.target.value);
+            if (event.target.checked) {
+                selectedPaperIds.add(id);
+            } else {
+                selectedPaperIds.delete(id);
+            }
+            updateBulkActions();
+        });
+    });
+
     updatePagination(filteredPapers.length);
+    updateBulkActions();
 }
 
 function updatePagination(totalItems) {
@@ -684,28 +718,7 @@ async function toggleStatus(id) {
     if (!confirm(`Are you sure you want to ${action} this paper?`)) return;
 
     try {
-        const response = await fetch(`/api/papers/${id}`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                year: paper.year,
-                subject: paper.subject,
-                level: paper.level,
-                category: paper.category,
-                trade_or_combination: paper.trade_or_combination,
-                status: newStatus
-            }),
-            credentials: 'include'
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-            throw new Error(data.message || 'Failed to update status');
-        }
-
+        await updatePaperStatus(paper, newStatus);
         showNotification(`Paper ${action}d successfully`, 'success');
         await loadPapers();
 
@@ -795,12 +808,26 @@ function resetFilters() {
 // ============== EXPORT FUNCTION ==============
 
 function exportToCSV() {
+    exportPapersToCSV(filteredPapers, `papers_export_${new Date().toISOString().split('T')[0]}.csv`);
+}
+
+function exportSelectedToCSV() {
+    const selectedPapers = allPapers.filter(paper => selectedPaperIds.has(paper.id));
+    if (selectedPapers.length === 0) {
+        showNotification('Select papers before exporting', 'error');
+        return;
+    }
+
+    exportPapersToCSV(selectedPapers, `selected_papers_${new Date().toISOString().split('T')[0]}.csv`);
+}
+
+function exportPapersToCSV(papers, filename) {
     const headers = ['ID', 'Year', 'Subject', 'Level', 'Category', 'Trade/Combination', 'Status', 'Created'];
     const csvRows = [];
 
     csvRows.push(headers.join(','));
 
-    filteredPapers.forEach(paper => {
+    papers.forEach(paper => {
         const row = [
             paper.id,
             paper.year,
@@ -819,11 +846,90 @@ function exportToCSV() {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `papers_export_${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = filename;
     a.click();
     window.URL.revokeObjectURL(url);
 
     showNotification('Export started', 'success');
+}
+
+// ============== STORAGE SUMMARY ==============
+
+async function loadStorageSummary() {
+    try {
+        const response = await fetch('/api/papers/admin/storage', {
+            credentials: 'include',
+            headers: {
+                'Cache-Control': 'no-cache'
+            }
+        });
+
+        const result = await response.json();
+        if (!response.ok || !result.success) {
+            throw new Error(result.message || 'Failed to load upload storage');
+        }
+
+        const storage = result.data;
+        document.getElementById('uploadFolderLabel').textContent = storage.uploadFolder || 'backend/uploads';
+        document.getElementById('filesOnDiskCount').textContent = storage.filesOnDisk ?? 0;
+        document.getElementById('uploadTotalSize').textContent = formatBytes(storage.totalBytes || 0);
+        document.getElementById('missingFileCount').textContent = storage.missingFiles?.length || 0;
+
+        if (storage.missingFiles?.length) {
+            showNotification(`${storage.missingFiles.length} paper file(s) are missing from uploads`, 'error');
+        }
+    } catch (error) {
+        console.error('Error loading upload storage:', error);
+        await loadStorageSummaryFallback();
+    }
+}
+
+async function loadStorageSummaryFallback() {
+    try {
+        const papers = allPapers.length ? allPapers : await fetchAdminPapers();
+        const databaseFiles = papers.filter(paper => paper.file_path).length;
+
+        document.getElementById('uploadFolderLabel').textContent = 'backend/uploads';
+        document.getElementById('filesOnDiskCount').textContent = databaseFiles;
+        document.getElementById('uploadTotalSize').textContent = 'N/A';
+        document.getElementById('missingFileCount').textContent = 'N/A';
+    } catch (fallbackError) {
+        console.error('Storage fallback failed:', fallbackError);
+        document.getElementById('uploadFolderLabel').textContent = 'backend/uploads';
+        document.getElementById('filesOnDiskCount').textContent = '0';
+        document.getElementById('uploadTotalSize').textContent = 'N/A';
+        document.getElementById('missingFileCount').textContent = 'N/A';
+    }
+}
+
+async function fetchAdminPapers() {
+    const response = await fetch('/api/papers/admin', {
+        credentials: 'include',
+        headers: {
+            'Cache-Control': 'no-cache',
+            'Accept': 'application/json'
+        }
+    });
+
+    if (response.status === 401 || response.status === 403) {
+        window.location.href = '/admin/login.html';
+        return [];
+    }
+
+    const result = await response.json();
+    return result.success && Array.isArray(result.data) ? result.data : [];
+}
+
+async function copyFileLink(fileUrl) {
+    const absoluteUrl = new URL(fileUrl, window.location.origin).href;
+
+    try {
+        await navigator.clipboard.writeText(absoluteUrl);
+        showNotification('File link copied', 'success');
+    } catch (error) {
+        console.error('Clipboard error:', error);
+        showNotification(absoluteUrl, 'success');
+    }
 }
 
 // ============== COMMENT MANAGEMENT ==============
@@ -875,6 +981,88 @@ async function loadComments() {
             `;
         }
     }
+}
+
+async function updatePaperStatus(paper, status) {
+    const response = await fetch(`/api/papers/${paper.id}`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            year: paper.year,
+            subject: paper.subject,
+            level: paper.level,
+            category: paper.category,
+            trade_or_combination: paper.trade_or_combination,
+            status
+        }),
+        credentials: 'include'
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+        throw new Error(data.message || 'Failed to update status');
+    }
+
+    return data;
+}
+
+async function bulkUpdateStatus(status) {
+    const selectedPapers = allPapers.filter(paper => selectedPaperIds.has(paper.id));
+    if (selectedPapers.length === 0) return;
+
+    const action = status === 'active' ? 'activate' : 'deactivate';
+    if (!confirm(`Are you sure you want to ${action} ${selectedPapers.length} selected paper(s)?`)) return;
+
+    try {
+        await Promise.all(selectedPapers.map(paper => updatePaperStatus(paper, status)));
+        selectedPaperIds.clear();
+        showNotification(`Selected papers ${action}d successfully`, 'success');
+        await loadPapers();
+    } catch (error) {
+        console.error('Error updating selected papers:', error);
+        showNotification('Failed to update selected papers: ' + error.message, 'error');
+    }
+}
+
+function updateBulkActions() {
+    const selectedCount = selectedPaperIds.size;
+    const bulkActions = document.getElementById('bulkActions');
+    const selectedCountEl = document.getElementById('selectedCount');
+    const selectAll = document.getElementById('selectAllPapers');
+    const visibleIds = filteredPapers
+        .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+        .map(paper => paper.id);
+
+    if (bulkActions) {
+        bulkActions.classList.toggle('active', selectedCount > 0);
+    }
+
+    if (selectedCountEl) {
+        selectedCountEl.textContent = `${selectedCount} selected`;
+    }
+
+    if (selectAll) {
+        const selectedVisibleCount = visibleIds.filter(id => selectedPaperIds.has(id)).length;
+        selectAll.checked = visibleIds.length > 0 && selectedVisibleCount === visibleIds.length;
+        selectAll.indeterminate = selectedVisibleCount > 0 && selectedVisibleCount < visibleIds.length;
+    }
+}
+
+function setSelectedVisiblePapers(isSelected) {
+    filteredPapers
+        .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+        .forEach(paper => {
+            if (isSelected) {
+                selectedPaperIds.add(paper.id);
+            } else {
+                selectedPaperIds.delete(paper.id);
+            }
+        });
+
+    displayPapers();
 }
 
 function displayComments() {
@@ -998,7 +1186,7 @@ function showLoading() {
     if (tbody) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="9" class="text-center">
+                <td colspan="10" class="text-center">
                     <div class="loading-spinner"></div>
                     <p>Loading papers...</p>
                 </td>
@@ -1017,6 +1205,15 @@ function debounce(func, wait) {
         clearTimeout(timeout);
         timeout = setTimeout(later, wait);
     };
+}
+
+function formatBytes(bytes) {
+    if (!bytes) return '0 B';
+
+    const units = ['B', 'KB', 'MB', 'GB'];
+    const index = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+    const value = bytes / Math.pow(1024, index);
+    return `${value.toFixed(value >= 10 || index === 0 ? 0 : 1)} ${units[index]}`;
 }
 
 function showNotification(message, type) {
@@ -1064,3 +1261,5 @@ window.loadPapers = loadPapers;
 window.loadComments = loadComments;
 window.openReplyModal = openReplyModal;
 window.closeReplyModal = closeReplyModal;
+window.copyFileLink = copyFileLink;
+window.loadStorageSummary = loadStorageSummary;
