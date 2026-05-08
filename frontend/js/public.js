@@ -25,10 +25,10 @@ let currentPaperForShare = null;
 let currentPreviewPaper = null;
 let searchFallbackActive = false;
 let searchFallbackQuery = '';
+const API_ENDPOINTS = ['/api/papers/public', '/api/exam_papers', '/exam_papers'];
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('NESA Public Portal initialized');
     initializePage();
     loadPapers(); // Load papers immediately
     setupEventListeners();
@@ -36,8 +36,6 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function initializePage() {
-    console.log('Initializing page...');
-    
     // Populate year filter
     const yearFilter = document.getElementById('yearFilter');
     if (yearFilter) {
@@ -65,8 +63,6 @@ function initializePage() {
 }
 
 function setupEventListeners() {
-    console.log('Setting up event listeners...');
-    
     // Search with debounce
     const searchInput = document.getElementById('searchInput');
     if (searchInput) {
@@ -88,6 +84,12 @@ function setupEventListeners() {
         if (e.target === previewModal) closePreview();
         if (e.target === shareModal) closeShareModal();
     });
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeSidebar();
+        }
+    });
 }
 
 // ========================================
@@ -95,8 +97,6 @@ function setupEventListeners() {
 // ========================================
 
 async function loadPapers() {
-    console.log('Loading papers from API...');
-    
     // Show loading state
     const container = document.getElementById('papersContainer');
     if (container) {
@@ -104,35 +104,21 @@ async function loadPapers() {
     }
     
     try {
-        // Use the public API endpoint instead of the admin one
-        console.log('Fetching from /api/papers/public...');
-        const response = await fetch('/api/papers/public');
-        console.log('Response status:', response.status);
-        
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        console.log('API Response:', data);
+        const data = await fetchPapersData();
         
         // Handle different response formats
         if (data.success && Array.isArray(data.data)) {
             allPapers = data.data;
-            console.log('Set allPapers from data.data, length:', allPapers.length);
         } else if (Array.isArray(data)) {
             allPapers = data;
-            console.log('Set allPapers from data array, length:', allPapers.length);
         } else if (data.data && Array.isArray(data.data)) {
             allPapers = data.data;
-            console.log('Set allPapers from data.data (fallback), length:', allPapers.length);
         } else {
             console.warn('Unexpected data format:', data);
             allPapers = [];
         }
         
         // After loading papers, update UI
-        console.log('About to call populateSubjectFilter, filterPapers, updateStats');
         populateSubjectFilter();
         filterPapers(); // This will set filteredPapers and call displayPapers
         updateStats();
@@ -216,8 +202,6 @@ function updateStats() {
 }
 
 function filterPapers() {
-    console.log('Filtering papers... allPapers length:', allPapers.length);
-
     const searchTerm = normalizeSearchText(document.getElementById('searchInput')?.value || '');
     const year = document.getElementById('yearFilter')?.value || '';
     const level = document.getElementById('levelFilter')?.value || '';
@@ -262,9 +246,6 @@ function filterPapers() {
         }
     }
 
-    console.log(`Filtered to ${filteredPapers.length} papers`);
-    console.log('First few filtered papers:', filteredPapers.slice(0, 3));
-    
     // Reset to first page
     currentPage = 1;
     displayPapers();
@@ -507,72 +488,38 @@ function resetFilters() {
 }
 
 async function filterByCategory(category) {
-    console.log(`Filtering by category: ${category}`);
-    
     // Update active state in sidebar
     document.querySelectorAll('.sidebar-nav a').forEach(a => a.classList.remove('active'));
     const trigger = window.event?.target?.closest('a');
     if (trigger) trigger.classList.add('active');
-    
-    if (category === 'all') {
-        await loadPapers();
-    } else {
-        try {
-            const response = await fetch(`/api/papers/public/category/${encodeURIComponent(category)}`);
-            const result = await response.json();
-            
-            if (result.success) {
-                allPapers = result.data || [];
-                filteredPapers = [...allPapers];
-                displayPapers();
-                updateStats();
-                populateSubjectFilter();
-            }
-        } catch (error) {
-            console.error('Error:', error);
-        }
-    }
     
     // Reset category filter dropdown
     document.getElementById('categoryFilter').value = category === 'all' ? '' : category;
+    document.getElementById('levelFilter').value = '';
+    currentPage = 1;
+    filterPapers();
+    closeSidebar();
 }
 
 async function filterByLevel(level) {
-    console.log(`Filtering by level: ${level}`);
-    
     // Update active state in sidebar
     document.querySelectorAll('.sidebar-nav a').forEach(a => a.classList.remove('active'));
     const trigger = window.event?.target?.closest('a');
     if (trigger) trigger.classList.add('active');
-    
-    try {
-        const response = await fetch(`/api/papers/public/level/${encodeURIComponent(level)}`);
-        const result = await response.json();
-        
-        if (result.success) {
-            allPapers = result.data || [];
-            filteredPapers = [...allPapers];
-            displayPapers();
-            updateStats();
-            populateSubjectFilter();
-        }
-    } catch (error) {
-        console.error('Error:', error);
-    }
     
     // Reset level filter dropdown
     document.getElementById('levelFilter').value = level;
+    document.getElementById('categoryFilter').value = '';
+    currentPage = 1;
+    filterPapers();
+    closeSidebar();
 }
 
 async function showAllPapers() {
-    console.log('Showing all papers');
-    
     // Update active state in sidebar
     document.querySelectorAll('.sidebar-nav a').forEach(a => a.classList.remove('active'));
     const trigger = window.event?.target?.closest('a');
     if (trigger) trigger.classList.add('active');
-    
-    await loadPapers();
     
     // Reset all filters
     document.getElementById('searchInput').value = '';
@@ -581,6 +528,9 @@ async function showAllPapers() {
     document.getElementById('categoryFilter').value = '';
     document.getElementById('subjectFilter').value = '';
     document.getElementById('tradeFilter').value = '';
+    currentPage = 1;
+    filterPapers();
+    closeSidebar();
 }
 
 function toggleFilters() {
@@ -620,6 +570,30 @@ async function downloadPaper(id, fileUrl) {
         console.error('Error tracking download:', error);
         window.location.href = fileUrl;
     }
+}
+
+async function fetchPapersData() {
+    let lastError = null;
+
+    for (const endpoint of API_ENDPOINTS) {
+        try {
+            const response = await fetch(endpoint, {
+                headers: { Accept: 'application/json' },
+                cache: 'no-store'
+            });
+
+            if (!response.ok) {
+                lastError = new Error(`${endpoint} returned ${response.status}`);
+                continue;
+            }
+
+            return response.json();
+        } catch (error) {
+            lastError = error;
+        }
+    }
+
+    throw lastError || new Error('No papers endpoint is available');
 }
 
 function sharePaper(id) {
@@ -1201,7 +1175,14 @@ function cssClassName(value) {
 }
 
 function toggleSidebar() {
-    document.querySelector('.public-sidebar')?.classList.toggle('active');
+    const sidebar = document.querySelector('.public-sidebar');
+    sidebar?.classList.toggle('active');
+    document.body.classList.toggle('menu-open', sidebar?.classList.contains('active'));
+}
+
+function closeSidebar() {
+    document.querySelector('.public-sidebar')?.classList.remove('active');
+    document.body.classList.remove('menu-open');
 }
 
 function refreshPapers() {
@@ -1255,3 +1236,5 @@ window.setRating = setRating;
 window.likeComment = likeComment;
 window.toggleStudentProfile = toggleStudentProfile;
 window.toggleNotifications = toggleNotifications;
+window.closeSidebar = closeSidebar;
+window.trackVisit = trackVisit;

@@ -9,6 +9,10 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: MYSQL_SSL
+        value: true
+      - key: MYSQL_SSL_REJECT_UNAUTHORIZED
+        value: false
       - key: MYSQL_HOST
         sync: false
       - key: MYSQL_PORT
