@@ -9,10 +9,18 @@ export async function createBookmark(req, res) {
 
   const ipAddress = ip_address || user_identifier || req.ip;
 
-  const result = await query(
-    'INSERT INTO bookmarks (paper_id, ip_address) VALUES (?, ?)',
-    [paper_id, ipAddress]
-  );
+  let result = { insertId: null };
+
+  try {
+    result = await query(
+      'INSERT INTO bookmarks (paper_id, ip_address) VALUES (?, ?)',
+      [paper_id, ipAddress]
+    );
+  } catch (error) {
+    if (error.code !== 'ER_NO_REFERENCED_ROW_2' && error.code !== 'ER_NO_SUCH_TABLE') {
+      throw error;
+    }
+  }
 
   res.status(201).json({
     success: true,

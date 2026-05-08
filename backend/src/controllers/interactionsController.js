@@ -17,10 +17,18 @@ export async function createPaperInteraction(req, res) {
   }
 
   const identifier = user_identifier || req.ip;
-  const result = await query(
-    'INSERT INTO paper_interactions (paper_id, interaction_type, user_identifier) VALUES (?, ?, ?)',
-    [paper_id, interaction_type, identifier]
-  );
+  let result = { insertId: null };
+
+  try {
+    result = await query(
+      'INSERT INTO paper_interactions (paper_id, interaction_type, user_identifier) VALUES (?, ?, ?)',
+      [paper_id, interaction_type, identifier]
+    );
+  } catch (error) {
+    if (error.code !== 'ER_NO_REFERENCED_ROW_2' && error.code !== 'ER_DUP_ENTRY' && error.code !== 'ER_NO_SUCH_TABLE') {
+      throw error;
+    }
+  }
 
   res.status(201).json({
     success: true,

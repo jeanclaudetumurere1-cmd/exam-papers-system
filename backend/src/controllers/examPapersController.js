@@ -8,7 +8,12 @@ const __dirname = path.dirname(__filename);
 const uploadsDir = path.resolve(__dirname, '../../../backend/uploads');
 
 export async function getExamPapers(req, res) {
-  const { status = 'active', year, subject, level, category, limit = 500, offset = 0 } = req.query;
+  const rows = await getExamPapersData(req.query);
+  res.json({ success: true, count: rows.length, data: rows });
+}
+
+export async function getExamPapersData(options = {}) {
+  const { status = 'active', year, subject, level, category, limit = 500, offset = 0 } = options;
   const filters = [];
   const params = [];
 
@@ -54,7 +59,7 @@ export async function getExamPapers(req, res) {
     rows = getUploadFallbackPapers({ year, subject, level, category }).slice(safeOffset, safeOffset + safeLimit);
   }
 
-  res.json({ success: true, count: rows.length, data: rows });
+  return rows;
 }
 
 export async function downloadPaper(req, res) {

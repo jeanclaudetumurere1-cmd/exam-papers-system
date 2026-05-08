@@ -17,6 +17,11 @@ const corsSource = process.env.CLIENT_ORIGIN || process.env.CORS_ORIGIN || '';
 export const env = {
   nodeEnv: process.env.NODE_ENV || 'development',
   port: Number(process.env.PORT || 3000),
+  jwtSecret: process.env.JWT_SECRET || 'change-this-secret-before-deploying',
+  admin: {
+    username: process.env.ADMIN_USERNAME || 'Claude',
+    password: process.env.ADMIN_PASSWORD || 'Umusuder01@'
+  },
   corsOrigins: corsSource
     .split(',')
     .map((origin) => origin.trim())
